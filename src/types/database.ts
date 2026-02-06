@@ -52,7 +52,20 @@ export interface Document {
   created_at: string;
 }
 
+export interface Template {
+  id: string;
+  user_id: string;
+  name: string;
+  description: string | null;
+  html_content: string;
+  thumbnail: string | null;
+  brand_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export type PageInsert = Omit<Page, "id" | "created_at" | "updated_at" | "view_count">;
 export type PageUpdate = Partial<Pick<Page, "title" | "slug" | "description" | "html_content" | "prompt_history" | "is_published" | "brand_id">>;
 export type BrandProfileInsert = Omit<BrandProfile, "id" | "created_at" | "updated_at">;
 export type DocumentInsert = Omit<Document, "id" | "created_at">;
+export type TemplateInsert = Omit<Template, "id" | "created_at" | "updated_at">;

@@ -4,12 +4,12 @@ import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { BrandSelector } from "@/components/generate/brand-selector";
+import { ThemeSelector, type ThemeSelection } from "@/components/generate/theme-selector";
 import { FileUpload } from "@/components/generate/file-upload";
 import { extractHtml } from "@/lib/ai/prompt";
 import { useEffect, useRef, useCallback, useState, useMemo } from "react";
 import type { UIMessage } from "ai";
-import type { PromptMessage, BrandProfile } from "@/types";
+import type { PromptMessage } from "@/types";
 
 interface UploadedDocument {
   id: string;
@@ -40,21 +40,41 @@ export function ChatInterface({
   initialHtml,
 }: ChatInterfaceProps) {
   const [inputValue, setInputValue] = useState("");
-  const [selectedBrand, setSelectedBrand] = useState<BrandProfile | null>(null);
+  const [themeSelection, setThemeSelection] = useState<ThemeSelection>({
+    theme: null,
+    styleSource: null,
+    layoutSource: null,
+    mode: "full",
+  });
   const [attachedDocuments, setAttachedDocuments] = useState<UploadedDocument[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const latestHtmlRef = useRef(initialHtml ?? "");
 
-  // Custom transport that includes brand_id and document_ids
+  // Custom transport that includes theme selection and document_ids
   const transport = useMemo(() => {
+    // In full mode, use the theme for both style and layout
+    // In mix mode, use separate sources
+    const styleId = themeSelection.mode === "full"
+      ? themeSelection.theme?.id
+      : themeSelection.styleSource?.id;
+    const layoutId = themeSelection.mode === "full"
+      ? themeSelection.theme?.id
+      : themeSelection.layoutSource?.id;
+    const layoutType = themeSelection.mode === "full"
+      ? (themeSelection.theme ? "brand" : undefined)
+      : themeSelection.layoutSource?.type;
+
+    console.log("[chat] Creating transport with style_id:", styleId, "layout_id:", layoutId);
     return new DefaultChatTransport({
       api: "/api/generate",
       body: {
-        brand_id: selectedBrand?.id,
+        brand_id: styleId,
+        layout_id: layoutId,
+        layout_type: layoutType,
         document_ids: attachedDocuments.map((d) => d.id),
       },
     });
-  }, [selectedBrand, attachedDocuments]);
+  }, [themeSelection, attachedDocuments]);
 
   const { messages, status, sendMessage } = useChat({
     transport,
@@ -159,10 +179,10 @@ export function ChatInterface({
         <div ref={messagesEndRef} />
       </div>
       <form onSubmit={handleSubmit} className="border-t p-4">
-        <div className="flex items-center gap-2 mb-2">
-          <BrandSelector
-            selectedBrand={selectedBrand}
-            onBrandChange={setSelectedBrand}
+        <div className="flex items-center gap-2 mb-2 flex-wrap">
+          <ThemeSelector
+            selection={themeSelection}
+            onSelectionChange={setThemeSelection}
           />
           <FileUpload
             documents={attachedDocuments}

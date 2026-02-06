@@ -1,4 +1,5 @@
 import type { BrandProfile } from "@/types/database";
+import type { LayoutMap } from "@/types/style-editor";
 
 export const SYSTEM_PROMPT = `You are an expert HTML page generator. Your job is to create beautiful, complete, self-contained HTML pages based on user descriptions.
 
@@ -18,37 +19,107 @@ Rules:
 
 When the user asks you to modify an existing page, incorporate their changes while preserving the overall structure and style unless they ask for a complete redesign.`;
 
+interface LayoutData {
+  layoutMap?: LayoutMap;
+  layoutHtml?: string;
+}
+
 /**
- * Build system prompt with optional brand guidelines
+ * Build a layout reference section for the system prompt
  */
-export function buildSystemPrompt(brand?: BrandProfile | null): string {
-  if (!brand) return SYSTEM_PROMPT;
+function buildLayoutPrompt(layout: LayoutData): string {
+  const parts: string[] = [];
 
-  const brandColors = Array.isArray(brand.colors) ? brand.colors : [];
-  const brandFonts = Array.isArray(brand.fonts) ? brand.fonts : [];
+  parts.push(`\n\n## Layout Reference (MUST FOLLOW this structure)`);
+  parts.push(`\nThis page should follow this structural pattern:`);
 
-  let brandGuidelines = `\n\n## Brand Guidelines
-Apply these brand aesthetics to the page:`;
-
-  if (brandColors.length > 0) {
-    brandGuidelines += `\n\n**Primary Colors:** ${brandColors.slice(0, 4).join(", ")}`;
-    if (brandColors.length > 4) {
-      brandGuidelines += `\n**Accent Colors:** ${brandColors.slice(4).join(", ")}`;
+  if (layout.layoutMap?.sections?.length) {
+    for (const section of layout.layoutMap.sections) {
+      let desc = `- ${section.role.charAt(0).toUpperCase() + section.role.slice(1)}: ${section.layout} layout`;
+      if (section.childCount > 0) desc += ` with ${section.childCount} elements`;
+      if (section.hasImage) desc += ` (includes imagery)`;
+      parts.push(desc);
     }
   }
 
-  if (brandFonts.length > 0) {
-    brandGuidelines += `\n**Typography:** ${brandFonts.join(", ")}`;
-    brandGuidelines += `\nUse Google Fonts to load these fonts if they are web fonts.`;
+  if (layout.layoutMap?.patterns) {
+    const p = layout.layoutMap.patterns;
+    const patternParts: string[] = [];
+    if (p.maxWidth) patternParts.push(`max-width ${p.maxWidth}`);
+    if (p.sectionPadding) patternParts.push(`section padding ${p.sectionPadding}`);
+    if (p.gridGap) patternParts.push(`grid gap ${p.gridGap}`);
+    if (p.containerPadding) patternParts.push(`container padding ${p.containerPadding}`);
+    if (patternParts.length > 0) {
+      parts.push(`\nLayout patterns: ${patternParts.join(", ")}.`);
+    }
   }
 
-  if (brand.source_url) {
-    brandGuidelines += `\n**Style Reference:** ${brand.source_url}`;
+  if (layout.layoutHtml) {
+    parts.push(`\nHere is a structural HTML skeleton to use as your starting reference:\n\`\`\`html\n${layout.layoutHtml}\n\`\`\``);
+    parts.push(`\nAdapt this structure to fit the user's content. Keep the same section arrangement and layout patterns, but replace placeholder content with the user's actual content.`);
   }
 
-  brandGuidelines += `\n\nMatch this brand's visual identity in colors, typography, and overall feel. Use the primary colors for backgrounds, buttons, and key UI elements. Use accent colors for highlights and interactive states.`;
+  return parts.join("\n");
+}
 
-  return SYSTEM_PROMPT + brandGuidelines;
+/**
+ * Build system prompt with optional brand guidelines and layout reference
+ */
+export function buildSystemPrompt(
+  brand?: BrandProfile | null,
+  layout?: LayoutData | null
+): string {
+  let prompt = SYSTEM_PROMPT;
+
+  if (brand) {
+    const brandColors = Array.isArray(brand.colors) ? brand.colors : [];
+    const brandFonts = Array.isArray(brand.fonts) ? brand.fonts : [];
+
+    let brandGuidelines = `\n\n## CRITICAL: Brand Guidelines (MUST FOLLOW)
+You MUST apply these exact brand aesthetics to the page. Do NOT use generic colors or default palettes.`;
+
+    if (brandColors.length > 0) {
+      const primary = brandColors[0];
+      const secondary = brandColors[1] || brandColors[0];
+      const accent = brandColors[2] || brandColors[1] || brandColors[0];
+
+      brandGuidelines += `\n\n**REQUIRED Color Palette (use these EXACT hex values):**
+- Primary: ${primary} (use for headers, buttons, key elements)
+- Secondary: ${secondary} (use for backgrounds, cards)
+- Accent: ${accent} (use for highlights, links, CTAs)`;
+
+      if (brandColors.length > 3) {
+        brandGuidelines += `\n- Additional colors: ${brandColors.slice(3).join(", ")}`;
+      }
+
+      brandGuidelines += `\n\nIn your CSS, define these as custom properties:
+:root {
+  --color-primary: ${primary};
+  --color-secondary: ${secondary};
+  --color-accent: ${accent};
+}`;
+    }
+
+    if (brandFonts.length > 0) {
+      brandGuidelines += `\n\n**REQUIRED Typography:** ${brandFonts.join(", ")}`;
+      brandGuidelines += `\nLoad these fonts from Google Fonts and use them throughout the page.`;
+    }
+
+    if (brand.source_url) {
+      brandGuidelines += `\n\n**Style Reference:** ${brand.source_url}`;
+      brandGuidelines += `\nMatch the visual style, spacing, and overall feel of this website.`;
+    }
+
+    brandGuidelines += `\n\n**IMPORTANT:** The generated page MUST visually feel like it belongs to this brand. Use the exact hex colors provided above. Do NOT substitute with similar colors or default palettes.`;
+
+    prompt += brandGuidelines;
+  }
+
+  if (layout?.layoutMap || layout?.layoutHtml) {
+    prompt += buildLayoutPrompt(layout);
+  }
+
+  return prompt;
 }
 
 export function extractHtml(text: string): string {

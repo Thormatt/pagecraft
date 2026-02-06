@@ -3,7 +3,8 @@ import { buildSystemPrompt } from "@/lib/ai/prompt";
 import { formatDocumentsForContext } from "@/lib/content/processor";
 import { createClient } from "@/lib/supabase/server";
 import { streamText } from "ai";
-import type { BrandProfile } from "@/types/database";
+import type { BrandProfile, Template } from "@/types/database";
+import type { LayoutMap } from "@/types/style-editor";
 
 export const maxDuration = 60;
 
@@ -26,12 +27,15 @@ interface ModelMessage {
 interface GenerateRequest {
   messages: UIMessage[];
   brand_id?: string;
+  template_id?: string;
   document_ids?: string[];
+  layout_id?: string;
+  layout_type?: "brand" | "template";
 }
 
 function convertToModelMessages(
   messages: UIMessage[],
-  documentContext?: string
+  context?: { documents?: string; template?: string }
 ): ModelMessage[] {
   return messages.map((msg, idx) => {
     let content: string;
@@ -44,9 +48,21 @@ function convertToModelMessages(
       content = msg.content ?? "";
     }
 
-    // Prepend document context to the first user message
-    if (documentContext && msg.role === "user" && idx === 0) {
-      content = `${documentContext}\n\n## User Request\n${content}`;
+    // Prepend context to the first user message
+    if (msg.role === "user" && idx === 0) {
+      const parts: string[] = [];
+
+      if (context?.template) {
+        parts.push(context.template);
+      }
+
+      if (context?.documents) {
+        parts.push(context.documents);
+      }
+
+      if (parts.length > 0) {
+        content = `${parts.join("\n\n")}\n\n## User Request\n${content}`;
+      }
     }
 
     return { role: msg.role, content };
@@ -63,8 +79,10 @@ export async function POST(request: Request) {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  const { messages, brand_id, document_ids }: GenerateRequest =
+  const { messages, brand_id, template_id, document_ids, layout_id, layout_type }: GenerateRequest =
     await request.json();
+
+  console.log("[generate] Request received:", { brand_id, template_id, document_ids, layout_id, layout_type, messageCount: messages.length });
 
   // Fetch brand profile if provided
   let brand: BrandProfile | null = null;
@@ -76,6 +94,79 @@ export async function POST(request: Request) {
       .eq("user_id", user.id)
       .single();
     brand = data;
+    console.log("[generate] Brand loaded:", {
+      id: brand?.id,
+      name: brand?.name,
+      colors: brand?.colors,
+      fonts: brand?.fonts,
+      source_url: brand?.source_url,
+    });
+  }
+
+  // Fetch template if provided
+  let template: Template | null = null;
+  let templateContext = "";
+  if (template_id) {
+    const { data } = await supabase
+      .from("templates")
+      .select("*")
+      .eq("id", template_id)
+      .eq("user_id", user.id)
+      .single();
+    template = data;
+    if (template) {
+      console.log("[generate] Template loaded:", { id: template.id, name: template.name });
+      templateContext = `## Template Reference
+
+Use this HTML template as your structural and stylistic reference. Match its layout, component structure, and design patterns. Replace the content with the user's requested content while preserving the template's design language.
+
+\`\`\`html
+${template.html_content}
+\`\`\``;
+    }
+  }
+
+  // Fetch layout data if provided
+  let layoutData: { layoutMap?: LayoutMap; layoutHtml?: string } | null = null;
+  if (layout_id && layout_type) {
+    if (layout_type === "brand") {
+      const { data: layoutBrand } = await supabase
+        .from("brand_profiles")
+        .select("styles")
+        .eq("id", layout_id)
+        .eq("user_id", user.id)
+        .single();
+      if (layoutBrand?.styles) {
+        const s = layoutBrand.styles as Record<string, unknown>;
+        layoutData = {
+          layoutMap: s.layoutMap as LayoutMap | undefined,
+          layoutHtml: s.layoutHtml as string | undefined,
+        };
+        console.log("[generate] Layout loaded from brand:", layout_id);
+      }
+    } else if (layout_type === "template") {
+      // When a template is selected as layout source, use its full HTML as the layout reference
+      const { data: layoutTemplate } = await supabase
+        .from("templates")
+        .select("html_content")
+        .eq("id", layout_id)
+        .eq("user_id", user.id)
+        .single();
+      if (layoutTemplate) {
+        layoutData = { layoutHtml: layoutTemplate.html_content };
+        // Also set template context for backward compatibility
+        if (!template) {
+          templateContext = `## Template Reference
+
+Use this HTML template as your structural and stylistic reference. Match its layout, component structure, and design patterns. Replace the content with the user's requested content while preserving the template's design language.
+
+\`\`\`html
+${layoutTemplate.html_content}
+\`\`\``;
+        }
+        console.log("[generate] Layout loaded from template:", layout_id);
+      }
+    }
   }
 
   // Fetch documents if provided
@@ -94,8 +185,16 @@ export async function POST(request: Request) {
     }
   }
 
-  const modelMessages = convertToModelMessages(messages, documentContext);
-  const systemPrompt = buildSystemPrompt(brand);
+  const modelMessages = convertToModelMessages(messages, {
+    template: templateContext,
+    documents: documentContext,
+  });
+  const systemPrompt = buildSystemPrompt(brand, layoutData);
+
+  console.log("[generate] System prompt length:", systemPrompt.length);
+  if (brand) {
+    console.log("[generate] Brand section of prompt:", systemPrompt.slice(systemPrompt.indexOf("## CRITICAL")));
+  }
 
   const result = streamText({
     model: openrouter(MODEL_ID),

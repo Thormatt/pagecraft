@@ -27,7 +27,7 @@ export function Dialog({ open, onClose, children }: DialogProps) {
     <dialog
       ref={dialogRef}
       onClose={onClose}
-      className="m-auto max-w-lg rounded-xl border bg-background p-0 shadow-lg backdrop:bg-black/50"
+      className="m-auto max-w-lg rounded-xl border border-border bg-card text-card-foreground p-0 shadow-lg backdrop:bg-black/50"
     >
       {open && children}
     </dialog>

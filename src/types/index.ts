@@ -8,4 +8,6 @@ export type {
   BrandProfileInsert,
   Document,
   DocumentInsert,
+  Template,
+  TemplateInsert,
 } from "./database";
