@@ -3,10 +3,20 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogHeader, DialogTitle, DialogContent, DialogFooter } from "@/components/ui/dialog";
+import { ShareButton } from "@/components/generate/share-button";
 import { generateSlug, isValidSlug } from "@/lib/utils";
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import type { PromptMessage } from "@/types";
+import type { Profile } from "@/types/database";
+
+interface DeployedPage {
+  id: string;
+  title: string;
+  slug: string;
+  url: string;
+}
 
 interface DeployButtonProps {
   html: string;
@@ -21,13 +31,40 @@ export function DeployButton({ html, messages, disabled }: DeployButtonProps) {
   const [description, setDescription] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [deployedPage, setDeployedPage] = useState<DeployedPage | null>(null);
   const router = useRouter();
+
+  const fetchProfile = useCallback(async () => {
+    setProfileLoading(true);
+    try {
+      const res = await fetch("/api/profile");
+      if (res.ok) {
+        const data = await res.json();
+        setProfile(data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch profile:", err);
+    } finally {
+      setProfileLoading(false);
+    }
+  }, []);
 
   const handleOpen = () => {
     setOpen(true);
     setError("");
+    setDeployedPage(null);
+    fetchProfile();
     if (!slug) {
       setSlug(generateSlug(title || "page"));
+    }
+  };
+
+  const handleClose = () => {
+    setOpen(false);
+    if (deployedPage) {
+      router.push(`/pages/${deployedPage.id}`);
     }
   };
 
@@ -72,8 +109,18 @@ export function DeployButton({ html, messages, disabled }: DeployButtonProps) {
       }
 
       const page = await response.json();
-      setOpen(false);
-      router.push(`/pages/${page.id}`);
+      // Build the public URL
+      const pageUrl = profile?.username
+        ? `/p/${profile.username}/${slug}`
+        : `/p/${page.id}`;
+
+      setDeployedPage({
+        id: page.id,
+        title: title.trim(),
+        slug,
+        url: pageUrl,
+      });
+      setLoading(false);
     } catch {
       setError("Something went wrong");
       setLoading(false);
@@ -82,57 +129,125 @@ export function DeployButton({ html, messages, disabled }: DeployButtonProps) {
 
   return (
     <>
-      <Button onClick={handleOpen} disabled={disabled || !html}>
+      <Button size="sm" onClick={handleOpen} disabled={disabled || !html}>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242" />
           <path d="M12 12v9" /><path d="m16 16-4-4-4 4" />
         </svg>
         Deploy
       </Button>
-      <Dialog open={open} onClose={() => setOpen(false)}>
-        <DialogHeader>
-          <DialogTitle>Deploy your page</DialogTitle>
-        </DialogHeader>
-        <DialogContent>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Title</label>
-              <Input
-                value={title}
-                onChange={(e) => handleTitleChange(e.target.value)}
-                placeholder="My awesome page"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">URL Slug</label>
-              <Input
-                value={slug}
-                onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
-                placeholder="my-awesome-page"
-              />
-              <p className="text-xs text-muted-foreground">
-                Your page will be available at /p/{slug || "..."}
-              </p>
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Description (optional)</label>
-              <Input
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="A short description of your page"
-              />
-            </div>
-            {error && <p className="text-sm text-destructive">{error}</p>}
-          </div>
-        </DialogContent>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)}>
-            Cancel
-          </Button>
-          <Button onClick={handleDeploy} disabled={loading}>
-            {loading ? "Deploying..." : "Deploy"}
-          </Button>
-        </DialogFooter>
+      <Dialog open={open} onClose={handleClose}>
+        {deployedPage ? (
+          <>
+            <DialogHeader>
+              <DialogTitle>
+                <span className="flex items-center gap-2">
+                  <svg className="h-5 w-5 text-green-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                    <polyline points="22 4 12 14.01 9 11.01" />
+                  </svg>
+                  Page deployed!
+                </span>
+              </DialogTitle>
+            </DialogHeader>
+            <DialogContent>
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Your page <strong>{deployedPage.title}</strong> is now live.
+                </p>
+                <div className="rounded-md bg-muted p-3">
+                  <p className="text-xs text-muted-foreground mb-1">Public URL</p>
+                  <p className="font-mono text-sm break-all">{deployedPage.url}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <ShareButton
+                    pageUrl={deployedPage.url}
+                    pageTitle={deployedPage.title}
+                    pageId={deployedPage.id}
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => window.open(deployedPage.url, "_blank")}
+                  >
+                    <svg className="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                      <polyline points="15 3 21 3 21 9" />
+                      <line x1="10" y1="14" x2="21" y2="3" />
+                    </svg>
+                    Open
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+            <DialogFooter>
+              <Button onClick={handleClose}>
+                Go to Page Details
+              </Button>
+            </DialogFooter>
+          </>
+        ) : (
+          <>
+            <DialogHeader>
+              <DialogTitle>Deploy your page</DialogTitle>
+            </DialogHeader>
+            <DialogContent>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Title</label>
+                  <Input
+                    value={title}
+                    onChange={(e) => handleTitleChange(e.target.value)}
+                    placeholder="My awesome page"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">URL Slug</label>
+                  <Input
+                    value={slug}
+                    onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
+                    placeholder="my-awesome-page"
+                  />
+                  {profileLoading ? (
+                    <p className="text-xs text-muted-foreground">Loading...</p>
+                  ) : profile?.username ? (
+                    <p className="text-xs text-muted-foreground">
+                      Available at <span className="font-mono">/p/{profile.username}/{slug || "..."}</span>
+                    </p>
+                  ) : (
+                    <div className="rounded-md bg-amber-50 border border-amber-200 p-2.5 text-xs">
+                      <p className="text-amber-800 font-medium">Username not set</p>
+                      <p className="text-amber-700 mt-0.5">
+                        Set a username in{" "}
+                        <Link href="/settings" className="underline hover:no-underline">
+                          Settings
+                        </Link>{" "}
+                        for professional URLs like <span className="font-mono">/p/yourname/{slug || "page"}</span>
+                      </p>
+                    </div>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Description (optional)</label>
+                  <Input
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="A short description of your page"
+                  />
+                </div>
+                {error && <p className="text-sm text-destructive">{error}</p>}
+              </div>
+            </DialogContent>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleDeploy} disabled={loading}>
+                {loading ? "Deploying..." : "Deploy"}
+              </Button>
+            </DialogFooter>
+          </>
+        )}
       </Dialog>
     </>
   );

@@ -79,17 +79,18 @@ export async function PATCH(
     );
   }
 
-  // If updating slug, check uniqueness
+  // If updating slug, check uniqueness per user
   if (parsed.data.slug) {
     const { data: existing } = await supabase
       .from("pages")
       .select("id")
+      .eq("user_id", user.id)
       .eq("slug", parsed.data.slug)
       .neq("id", id)
       .single();
 
     if (existing) {
-      return NextResponse.json({ error: "Slug already taken" }, { status: 409 });
+      return NextResponse.json({ error: "You already have a page with this slug" }, { status: 409 });
     }
   }
 

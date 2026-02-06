@@ -1,3 +1,11 @@
+export interface Profile {
+  id: string;
+  username: string | null;
+  display_name: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Page {
   id: string;
   user_id: string;
@@ -64,6 +72,7 @@ export interface Template {
   updated_at: string;
 }
 
+export type ProfileUpdate = Partial<Pick<Profile, "username" | "display_name">>;
 export type PageInsert = Omit<Page, "id" | "created_at" | "updated_at" | "view_count">;
 export type PageUpdate = Partial<Pick<Page, "title" | "slug" | "description" | "html_content" | "prompt_history" | "is_published" | "brand_id">>;
 export type BrandProfileInsert = Omit<BrandProfile, "id" | "created_at" | "updated_at">;

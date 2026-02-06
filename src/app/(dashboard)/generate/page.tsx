@@ -7,9 +7,11 @@ import { StyleEditorPanel } from "@/components/generate/style-editor-panel";
 import { DeployButton } from "@/components/generate/deploy-button";
 import { SaveTemplateButton } from "@/components/generate/save-template-button";
 import { SaveDraftButton } from "@/components/generate/save-draft-button";
+import { StarterTemplateGallery } from "@/components/generate/starter-template-gallery";
+import { ExportButton } from "@/components/generate/export-button";
 import { Button } from "@/components/ui/button";
-import { useState, useCallback, useRef } from "react";
-import { applyInlineStyle, applyTextContent } from "@/lib/style-editor/html-mutator";
+import { useState, useCallback, useRef, useEffect } from "react";
+import { applyInlineStyle, applyTextContent, applyAttribute, getElementOuterHtml, replaceElementOuterHtml, insertChildElement } from "@/lib/style-editor/html-mutator";
 import type { PromptMessage } from "@/types";
 import type { ElementInfo } from "@/types/style-editor";
 
@@ -19,8 +21,21 @@ export default function GeneratePage() {
   const [messages, setMessages] = useState<PromptMessage[]>([]);
   const [view, setView] = useState<"preview" | "code">("preview");
   const [editorOpen, setEditorOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(true);
   const [selectedElement, setSelectedElement] = useState<ElementInfo | null>(null);
+  const [initialTemplateHtml, setInitialTemplateHtml] = useState<string | null>(null);
   const previewRef = useRef<HtmlPreviewHandle>(null);
+
+  // Pick up template from /themes page navigation
+  useEffect(() => {
+    const templateHtml = sessionStorage.getItem("starter-template-html");
+    if (templateHtml) {
+      sessionStorage.removeItem("starter-template-html");
+      setHtml(templateHtml);
+      setPreviewHtml(templateHtml);
+      setInitialTemplateHtml(templateHtml); // Pass to chat interface for API
+    }
+  }, []);
 
   const handleHtmlUpdate = useCallback((newHtml: string) => {
     setHtml(newHtml);
@@ -56,6 +71,51 @@ export default function GeneratePage() {
     []
   );
 
+  const handleAttributeChange = useCallback(
+    (cssPath: string, attribute: string, value: string) => {
+      setHtml((prev) => applyAttribute(prev, cssPath, attribute, value));
+      // Update selected element attributes to keep UI in sync
+      setSelectedElement((prev) => {
+        if (!prev || prev.cssPath !== cssPath) return prev;
+        return { ...prev, attributes: { ...prev.attributes, [attribute]: value } };
+      });
+    },
+    []
+  );
+
+  const handleAiEdit = useCallback(
+    async (cssPath: string, instruction: string) => {
+      const elementHtml = getElementOuterHtml(html, cssPath);
+      if (!elementHtml) return;
+
+      const res = await fetch("/api/generate/edit-element", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ elementHtml, instruction }),
+      });
+
+      if (!res.ok) return;
+
+      const { html: newElementHtml } = await res.json();
+      if (!newElementHtml) return;
+
+      const updated = replaceElementOuterHtml(html, cssPath, newElementHtml);
+      setHtml(updated);
+      setPreviewHtml(updated);
+      setSelectedElement(null);
+    },
+    [html]
+  );
+
+  const handleInsertElement = useCallback(
+    (parentCssPath: string, childHtml: string) => {
+      const updated = insertChildElement(html, parentCssPath, childHtml);
+      setHtml(updated);
+      setPreviewHtml(updated);
+    },
+    [html]
+  );
+
   const handleElementSelected = useCallback((element: ElementInfo) => {
     setSelectedElement(element);
   }, []);
@@ -75,6 +135,11 @@ export default function GeneratePage() {
   const toggleEditor = useCallback(() => {
     setEditorOpen((prev) => {
       if (prev) {
+        // Exiting editor mode - sync previewHtml with html to persist text changes
+        setHtml((currentHtml) => {
+          setPreviewHtml(currentHtml);
+          return currentHtml;
+        });
         setSelectedElement(null);
         previewRef.current?.clearSelection();
       }
@@ -134,24 +199,55 @@ export default function GeneratePage() {
               Style
             </Button>
           )}
+          <ExportButton html={html} disabled={!html} />
           <SaveDraftButton html={html} messages={messages} disabled={!html} />
           <SaveTemplateButton html={html} disabled={!html} />
           <DeployButton html={html} messages={messages} disabled={!html} />
         </div>
       </div>
       <div className="flex flex-1 overflow-hidden">
-        <div className="w-full border-r md:w-[400px]">
-          <ChatInterface
-            onHtmlUpdate={handleHtmlUpdate}
-            onMessagesUpdate={handleMessagesUpdate}
-          />
-        </div>
+        {chatOpen && (
+          <div className="w-full border-r md:w-[400px] relative shrink-0">
+            <ChatInterface
+              onHtmlUpdate={handleHtmlUpdate}
+              onMessagesUpdate={handleMessagesUpdate}
+              initialTemplateHtml={initialTemplateHtml}
+            />
+            {/* Collapse chat button */}
+            {html && (
+              <button
+                onClick={() => setChatOpen(false)}
+                className="absolute top-3 right-3 z-10 rounded-md border bg-background p-1 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                title="Hide chat"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M11 19l-7-7 7-7" />
+                  <path d="M18 19l-7-7 7-7" />
+                </svg>
+              </button>
+            )}
+          </div>
+        )}
+        {!chatOpen && (
+          <button
+            onClick={() => setChatOpen(true)}
+            className="shrink-0 flex items-center justify-center w-10 border-r bg-background text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            title="Show chat"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            </svg>
+          </button>
+        )}
         {editorOpen && html && view === "preview" && (
-          <div className="hidden w-[280px] md:block">
+          <div className="hidden w-[280px] shrink-0 md:block">
             <StyleEditorPanel
               html={html}
               selectedElement={selectedElement}
               onStyleChange={handleStyleChange}
+              onAttributeChange={handleAttributeChange}
+              onAiEdit={handleAiEdit}
+              onInsertElement={handleInsertElement}
               onSelectElement={handleSelectElement}
               onClearSelection={handleClearSelection}
             />
@@ -177,14 +273,7 @@ export default function GeneratePage() {
               </div>
             )
           ) : (
-            <div className="flex h-full items-center justify-center text-muted-foreground">
-              <div className="text-center space-y-2">
-                <svg className="mx-auto h-12 w-12 opacity-50" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="2" y="3" width="20" height="14" rx="2" /><line x1="8" y1="21" x2="16" y2="21" /><line x1="12" y1="17" x2="12" y2="21" />
-                </svg>
-                <p className="text-sm">Preview will appear here</p>
-              </div>
-            </div>
+            <StarterTemplateGallery onSelect={handleHtmlUpdate} />
           )}
         </div>
       </div>

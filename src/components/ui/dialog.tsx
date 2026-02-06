@@ -7,9 +7,10 @@ interface DialogProps {
   open: boolean;
   onClose: () => void;
   children: ReactNode;
+  className?: string;
 }
 
-export function Dialog({ open, onClose, children }: DialogProps) {
+export function Dialog({ open, onClose, children, className }: DialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
@@ -27,7 +28,10 @@ export function Dialog({ open, onClose, children }: DialogProps) {
     <dialog
       ref={dialogRef}
       onClose={onClose}
-      className="m-auto max-w-lg rounded-xl border border-border bg-card text-card-foreground p-0 shadow-lg backdrop:bg-black/50"
+      className={cn(
+        "m-auto rounded-xl border border-border bg-card text-card-foreground p-0 shadow-lg backdrop:bg-black/50",
+        className
+      )}
     >
       {open && children}
     </dialog>

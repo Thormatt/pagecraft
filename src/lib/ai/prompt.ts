@@ -1,5 +1,8 @@
 import type { BrandProfile } from "@/types/database";
 import type { LayoutMap } from "@/types/style-editor";
+import { getPhotoReferenceForPrompt } from "@/lib/images/unsplash";
+
+export type ImageMode = "stock" | "ai" | "none";
 
 export const SYSTEM_PROMPT = `You are an expert HTML page generator. Your job is to create beautiful, complete, self-contained HTML pages based on user descriptions.
 
@@ -65,11 +68,44 @@ function buildLayoutPrompt(layout: LayoutData): string {
 /**
  * Build system prompt with optional brand guidelines and layout reference
  */
+export type IconStyle = "emoji" | "svg" | "none";
+
 export function buildSystemPrompt(
   brand?: BrandProfile | null,
-  layout?: LayoutData | null
+  layout?: LayoutData | null,
+  iconStyle?: IconStyle,
+  imageMode?: ImageMode
 ): string {
   let prompt = SYSTEM_PROMPT;
+
+  if (iconStyle === "svg") {
+    prompt += `\n\n## Icon Style
+Use simple inline SVG icons instead of emoji characters. Keep SVGs clean, single-color, and sized around 20-24px. Never use emoji/unicode symbols.`;
+  } else if (iconStyle === "none") {
+    prompt += `\n\n## Icon Style
+Do NOT use emoji characters, unicode symbols, or any icons. Use only text content.`;
+  }
+
+  // Image mode handling
+  if (imageMode === "stock") {
+    prompt += `\n\n## Image Style: Stock Photos
+Use real stock photos from Unsplash for all imagery. Do NOT use placeholder images, gradients as image substitutes, or generic colored boxes.
+
+${getPhotoReferenceForPrompt()}
+
+Choose appropriate images that match the content and context. Use meaningful alt text.`;
+  } else if (imageMode === "ai") {
+    prompt += `\n\n## Image Style: AI-Generated (Placeholder Markers)
+When you need images, insert placeholder markers in this format: {{IMAGE:description}}
+For example: {{IMAGE:modern office space with natural lighting}}
+
+These markers will be replaced with AI-generated images after the page is created.
+Do NOT use Unsplash URLs or placeholder.co - only use the {{IMAGE:description}} markers.`;
+  } else if (imageMode === "none") {
+    prompt += `\n\n## Image Style: No Images
+Do NOT include any images in the generated page. Use text, icons, and CSS styling only.
+You may use CSS gradients and backgrounds for visual interest, but no <img> tags.`;
+  }
 
   if (brand) {
     const brandColors = Array.isArray(brand.colors) ? brand.colors : [];

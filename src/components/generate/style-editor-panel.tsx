@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { SectionHeader } from "./style-controls/section-header";
 import { ColorInput } from "./style-controls/color-input";
 import { NumericInput } from "./style-controls/numeric-input";
@@ -20,10 +20,26 @@ const FONT_FAMILIES = [
   { label: "Times New Roman", value: "'Times New Roman', serif" },
 ];
 
+const CONTAINER_TAGS = new Set([
+  "div", "section", "article", "main", "aside", "header", "footer", "nav", "form",
+]);
+
+const INSERT_OPTIONS = [
+  { label: "Heading", html: '<h2 style="margin:0">New Heading</h2>' },
+  { label: "Text", html: "<p>New text paragraph. Double-click to edit.</p>" },
+  { label: "Link", html: '<a href="#" style="color:inherit">Link text</a>' },
+  { label: "Image", html: '<img src="https://placehold.co/600x400" alt="Placeholder" style="max-width:100%;height:auto" />' },
+  { label: "Button", html: '<a href="#" style="display:inline-block;padding:10px 24px;background:#2563eb;color:#fff;border-radius:6px;text-decoration:none;font-weight:600">Button</a>' },
+  { label: "Divider", html: '<hr style="border:none;border-top:1px solid #e5e7eb;margin:16px 0" />' },
+];
+
 interface StyleEditorPanelProps {
   html: string;
   selectedElement: ElementInfo | null;
   onStyleChange: (cssPath: string, property: string, value: string) => void;
+  onAttributeChange?: (cssPath: string, attribute: string, value: string) => void;
+  onAiEdit?: (cssPath: string, instruction: string) => Promise<void>;
+  onInsertElement?: (parentCssPath: string, childHtml: string) => void;
   onSelectElement: (cssPath: string) => void;
   onClearSelection: () => void;
 }
@@ -69,10 +85,78 @@ function SectionTreeItem({
   );
 }
 
+function AiEditInput({
+  cssPath,
+  onSubmit,
+}: {
+  cssPath: string;
+  onSubmit: (cssPath: string, instruction: string) => Promise<void>;
+}) {
+  const [instruction, setInstruction] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async () => {
+    const trimmed = instruction.trim();
+    if (!trimmed || loading) return;
+
+    setLoading(true);
+    try {
+      await onSubmit(cssPath, trimmed);
+      setInstruction("");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="border-b border-border px-3 py-2">
+      <label className="text-[10px] font-medium text-muted-foreground mb-1 block">
+        AI Edit
+      </label>
+      <div className="flex gap-1.5">
+        <input
+          type="text"
+          value={instruction}
+          onChange={(e) => setInstruction(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              handleSubmit();
+            }
+          }}
+          placeholder="e.g. make border pink gradient"
+          disabled={loading}
+          className="flex-1 rounded border border-border bg-input px-2 py-1 text-xs text-foreground placeholder:text-muted-foreground/50 disabled:opacity-50"
+        />
+        <button
+          type="button"
+          onClick={handleSubmit}
+          disabled={!instruction.trim() || loading}
+          className="shrink-0 rounded bg-primary px-2 py-1 text-xs font-medium text-primary-foreground disabled:opacity-50"
+        >
+          {loading ? (
+            <svg className="h-3 w-3 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+            </svg>
+          ) : (
+            <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M5 12h14" />
+              <path d="m12 5 7 7-7 7" />
+            </svg>
+          )}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function StyleEditorPanel({
   html,
   selectedElement,
   onStyleChange,
+  onAttributeChange,
+  onAiEdit,
+  onInsertElement,
   onSelectElement,
   onClearSelection,
 }: StyleEditorPanelProps) {
@@ -175,6 +259,28 @@ export function StyleEditorPanel({
               </div>
             </div>
 
+            {onAiEdit && <AiEditInput cssPath={selectedElement.cssPath} onSubmit={onAiEdit} />}
+
+            {onInsertElement && CONTAINER_TAGS.has(selectedElement.tagName) && (
+              <div className="border-b border-border px-3 py-2">
+                <label className="text-[10px] font-medium text-muted-foreground mb-1.5 block">
+                  Insert Element
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {INSERT_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.label}
+                      type="button"
+                      onClick={() => onInsertElement(selectedElement.cssPath, opt.html)}
+                      className="rounded border border-border px-2 py-1 text-[10px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <SectionHeader title="Typography" defaultOpen>
               <TypographyControls
                 styles={selectedElement.styles}
@@ -202,6 +308,59 @@ export function StyleEditorPanel({
                 onStyleChange={handleElementStyleChange}
               />
             </SectionHeader>
+
+            {/* Link attributes for <a> elements */}
+            {selectedElement.tagName === "a" && selectedElement.attributes && (
+              <SectionHeader title="Link" defaultOpen>
+                <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+                  <span>URL (href)</span>
+                  <input
+                    type="text"
+                    value={selectedElement.attributes.href || ""}
+                    onChange={(e) => onAttributeChange?.(selectedElement.cssPath, "href", e.target.value)}
+                    placeholder="https://example.com"
+                    className="w-full rounded border border-border bg-input px-2 py-1 text-xs text-foreground"
+                  />
+                </label>
+                <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <span className="flex-1">Target</span>
+                  <select
+                    value={selectedElement.attributes.target || ""}
+                    onChange={(e) => onAttributeChange?.(selectedElement.cssPath, "target", e.target.value)}
+                    className="w-32 rounded border border-border bg-input px-2 py-1 text-xs text-foreground"
+                  >
+                    <option value="">Same tab</option>
+                    <option value="_blank">New tab</option>
+                  </select>
+                </label>
+              </SectionHeader>
+            )}
+
+            {/* Image attributes for <img> elements */}
+            {selectedElement.tagName === "img" && selectedElement.attributes && (
+              <SectionHeader title="Image" defaultOpen>
+                <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+                  <span>Source (src)</span>
+                  <input
+                    type="text"
+                    value={selectedElement.attributes.src || ""}
+                    onChange={(e) => onAttributeChange?.(selectedElement.cssPath, "src", e.target.value)}
+                    placeholder="https://example.com/image.jpg"
+                    className="w-full rounded border border-border bg-input px-2 py-1 text-xs text-foreground"
+                  />
+                </label>
+                <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+                  <span>Alt text</span>
+                  <input
+                    type="text"
+                    value={selectedElement.attributes.alt || ""}
+                    onChange={(e) => onAttributeChange?.(selectedElement.cssPath, "alt", e.target.value)}
+                    placeholder="Describe the image"
+                    className="w-full rounded border border-border bg-input px-2 py-1 text-xs text-foreground"
+                  />
+                </label>
+              </SectionHeader>
+            )}
           </>
         )}
       </div>

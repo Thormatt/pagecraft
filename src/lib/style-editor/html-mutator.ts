@@ -118,6 +118,94 @@ export function applyTextContent(
   return `<!DOCTYPE html>\n${doc.documentElement.outerHTML}`;
 }
 
+/**
+ * Set or remove an HTML attribute on an element identified by cssPath.
+ * Returns the updated HTML string.
+ */
+export function applyAttribute(
+  html: string,
+  cssPath: string,
+  attribute: string,
+  value: string
+): string {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, "text/html");
+  const el = resolveElement(doc, cssPath);
+
+  if (!el) return html;
+
+  if (value) {
+    el.setAttribute(attribute, value);
+  } else {
+    el.removeAttribute(attribute);
+  }
+
+  return `<!DOCTYPE html>\n${doc.documentElement.outerHTML}`;
+}
+
+/**
+ * Append a child HTML element to a container identified by cssPath.
+ * Returns the updated full HTML string.
+ */
+export function insertChildElement(
+  html: string,
+  parentCssPath: string,
+  childHtml: string
+): string {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, "text/html");
+  const parent = resolveElement(doc, parentCssPath);
+
+  if (!parent) return html;
+
+  const template = doc.createElement("template");
+  template.innerHTML = childHtml.trim();
+  const newEl = template.content.firstElementChild;
+
+  if (!newEl) return html;
+
+  parent.appendChild(newEl);
+
+  return `<!DOCTYPE html>\n${doc.documentElement.outerHTML}`;
+}
+
+/**
+ * Extract the outerHTML of an element identified by cssPath.
+ */
+export function getElementOuterHtml(html: string, cssPath: string): string | null {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, "text/html");
+  const el = resolveElement(doc, cssPath);
+
+  return el?.outerHTML ?? null;
+}
+
+/**
+ * Replace the outerHTML of an element identified by cssPath with new HTML.
+ * Returns the updated full HTML string.
+ */
+export function replaceElementOuterHtml(
+  html: string,
+  cssPath: string,
+  newOuterHtml: string
+): string {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, "text/html");
+  const el = resolveElement(doc, cssPath);
+
+  if (!el) return html;
+
+  const template = doc.createElement("template");
+  template.innerHTML = newOuterHtml.trim();
+  const newEl = template.content.firstElementChild;
+
+  if (!newEl) return html;
+
+  el.replaceWith(newEl);
+
+  return `<!DOCTYPE html>\n${doc.documentElement.outerHTML}`;
+}
+
 const SECTION_TAGS = new Set([
   "header", "nav", "main", "section", "article",
   "aside", "footer", "div", "form",

@@ -78,6 +78,7 @@ export function SaveDraftButton({
   return (
     <Button
       variant="outline"
+      size="sm"
       onClick={handleSave}
       disabled={disabled || isSaving || !html}
     >

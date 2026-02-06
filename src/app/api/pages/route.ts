@@ -47,15 +47,16 @@ export async function POST(request: Request) {
 
   const { title, slug, description, html_content, prompt_history } = parsed.data;
 
-  // Check slug uniqueness
+  // Check slug uniqueness per user (slugs are unique per user, not globally)
   const { data: existing } = await supabase
     .from("pages")
     .select("id")
+    .eq("user_id", user.id)
     .eq("slug", slug)
     .single();
 
   if (existing) {
-    return NextResponse.json({ error: "Slug already taken" }, { status: 409 });
+    return NextResponse.json({ error: "You already have a page with this slug" }, { status: 409 });
   }
 
   const { data: page, error } = await supabase

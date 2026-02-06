@@ -1,5 +1,5 @@
 import { openrouter, MODEL_ID } from "@/lib/ai/client";
-import { buildSystemPrompt } from "@/lib/ai/prompt";
+import { buildSystemPrompt, type IconStyle, type ImageMode } from "@/lib/ai/prompt";
 import { formatDocumentsForContext } from "@/lib/content/processor";
 import { createClient } from "@/lib/supabase/server";
 import { streamText } from "ai";
@@ -31,6 +31,9 @@ interface GenerateRequest {
   document_ids?: string[];
   layout_id?: string;
   layout_type?: "brand" | "template";
+  starter_template_html?: string;
+  icon_style?: IconStyle;
+  image_mode?: ImageMode;
 }
 
 function convertToModelMessages(
@@ -79,10 +82,10 @@ export async function POST(request: Request) {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  const { messages, brand_id, template_id, document_ids, layout_id, layout_type }: GenerateRequest =
+  const { messages, brand_id, template_id, document_ids, layout_id, layout_type, starter_template_html, icon_style, image_mode }: GenerateRequest =
     await request.json();
 
-  console.log("[generate] Request received:", { brand_id, template_id, document_ids, layout_id, layout_type, messageCount: messages.length });
+  console.log("[generate] Request received:", { brand_id, template_id, document_ids, layout_id, layout_type, hasStarterTemplate: !!starter_template_html, image_mode, messageCount: messages.length });
 
   // Fetch brand profile if provided
   let brand: BrandProfile | null = null;
@@ -116,13 +119,43 @@ export async function POST(request: Request) {
     template = data;
     if (template) {
       console.log("[generate] Template loaded:", { id: template.id, name: template.name });
-      templateContext = `## Template Reference
 
-Use this HTML template as your structural and stylistic reference. Match its layout, component structure, and design patterns. Replace the content with the user's requested content while preserving the template's design language.
+      // Detect if this is a slideshow/presentation template
+      const html = template.html_content;
+      const isSlideshow = html.includes('slide') ||
+                          html.includes('carousel') ||
+                          (html.includes('prev') && html.includes('next')) ||
+                          /\d+\s*\/\s*\d+/.test(html) ||
+                          html.includes('currentSlide');
+
+      if (isSlideshow) {
+        templateContext = `## CRITICAL: Slideshow Template (MUST PRESERVE FORMAT)
+
+This is a SLIDESHOW/PRESENTATION template. You MUST preserve the slideshow format exactly:
+1. Keep ALL slides as separate sections that display one at a time
+2. Keep the navigation arrows (prev/next buttons)
+3. Keep the slide counter/indicator
+4. Keep the JavaScript for slide navigation
+5. Keep the presentation aspect ratio and transitions
+
+DO NOT convert this into a scrolling landing page. The output MUST be a slideshow presentation.
 
 \`\`\`html
-${template.html_content}
+${html}
 \`\`\``;
+      } else {
+        templateContext = `## Template Reference (MUST FOLLOW EXACTLY)
+
+Use this HTML template as your structural and stylistic reference. You MUST:
+1. Match its layout, component structure, design patterns, and CSS styling exactly
+2. Keep the same section arrangement and visual hierarchy
+3. Preserve the exact color palette, typography, and spacing
+4. Replace only the placeholder text content with the user's requested content
+
+\`\`\`html
+${html}
+\`\`\``;
+      }
     }
   }
 
@@ -156,16 +189,89 @@ ${template.html_content}
         layoutData = { layoutHtml: layoutTemplate.html_content };
         // Also set template context for backward compatibility
         if (!template) {
-          templateContext = `## Template Reference
+          const html = layoutTemplate.html_content;
+          const isSlideshow = html.includes('slide') ||
+                              html.includes('carousel') ||
+                              (html.includes('prev') && html.includes('next')) ||
+                              /\d+\s*\/\s*\d+/.test(html) ||
+                              html.includes('currentSlide');
 
-Use this HTML template as your structural and stylistic reference. Match its layout, component structure, and design patterns. Replace the content with the user's requested content while preserving the template's design language.
+          if (isSlideshow) {
+            templateContext = `## CRITICAL: Slideshow Template (MUST PRESERVE FORMAT)
+
+This is a SLIDESHOW/PRESENTATION template. You MUST preserve the slideshow format exactly:
+1. Keep ALL slides as separate sections that display one at a time
+2. Keep the navigation arrows (prev/next buttons)
+3. Keep the slide counter/indicator
+4. Keep the JavaScript for slide navigation
+5. Keep the presentation aspect ratio and transitions
+
+DO NOT convert this into a scrolling landing page. The output MUST be a slideshow presentation.
 
 \`\`\`html
-${layoutTemplate.html_content}
+${html}
 \`\`\``;
+          } else {
+            templateContext = `## Template Reference (MUST FOLLOW EXACTLY)
+
+Use this HTML template as your structural and stylistic reference. You MUST:
+1. Match its layout, component structure, design patterns, and CSS styling exactly
+2. Keep the same section arrangement and visual hierarchy
+3. Preserve the exact color palette, typography, and spacing
+4. Replace only the placeholder text content with the user's requested content
+
+\`\`\`html
+${html}
+\`\`\``;
+          }
         }
         console.log("[generate] Layout loaded from template:", layout_id);
       }
+    }
+  }
+
+  // Use starter template HTML as reference if provided (and no DB template is set)
+  if (starter_template_html && !templateContext) {
+    // Detect if this is a slideshow/presentation template
+    const isSlideshow = starter_template_html.includes('slide') ||
+                        starter_template_html.includes('carousel') ||
+                        (starter_template_html.includes('prev') && starter_template_html.includes('next')) ||
+                        /\d+\s*\/\s*\d+/.test(starter_template_html) || // "1 / 6" pattern
+                        starter_template_html.includes('currentSlide');
+
+    if (isSlideshow) {
+      templateContext = `## CRITICAL: Slideshow Template (MUST PRESERVE FORMAT)
+
+This is a SLIDESHOW/PRESENTATION template. You MUST preserve the slideshow format exactly:
+1. Keep ALL slides as separate sections that display one at a time
+2. Keep the navigation arrows (prev/next buttons)
+3. Keep the slide counter/indicator (e.g., "1 / 6")
+4. Keep the JavaScript for slide navigation
+5. Keep the 16:9 or presentation aspect ratio
+6. Keep the slide transition effects
+
+DO NOT convert this into a scrolling landing page. The output MUST be a slideshow presentation.
+
+Replace the placeholder content in each slide with the user's requested content, but maintain the exact same number of slides and navigation structure.
+
+\`\`\`html
+${starter_template_html}
+\`\`\``;
+      console.log("[generate] Using starter template as SLIDESHOW reference");
+    } else {
+      templateContext = `## Template Reference (MUST FOLLOW EXACTLY)
+
+Use this HTML template as your structural and stylistic reference. You MUST:
+1. Match its layout, component structure, design patterns, and CSS styling exactly
+2. Keep the same section arrangement and visual hierarchy
+3. Preserve the exact color palette, typography, and spacing
+4. Replace only the placeholder text content with the user's requested content
+5. Do NOT reorganize sections or change the fundamental layout
+
+\`\`\`html
+${starter_template_html}
+\`\`\``;
+      console.log("[generate] Using starter template as reference");
     }
   }
 
@@ -189,7 +295,7 @@ ${layoutTemplate.html_content}
     template: templateContext,
     documents: documentContext,
   });
-  const systemPrompt = buildSystemPrompt(brand, layoutData);
+  const systemPrompt = buildSystemPrompt(brand, layoutData, icon_style, image_mode);
 
   console.log("[generate] System prompt length:", systemPrompt.length);
   if (brand) {

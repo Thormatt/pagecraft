@@ -1,12 +1,14 @@
 /**
  * Generates the bridge script that gets injected into the iframe HTML.
- * Handles click-to-select, hover highlight, style application, and element selection.
+ * Starts dormant — only intercepts clicks and shows overlays after
+ * receiving an ACTIVATE message from the parent.
  */
 function bridgeScript(token: string): string {
   return `
 (function() {
   var TOKEN = ${JSON.stringify(token)};
   var SOURCE = "style-editor";
+  var active = false;
   var selected = null;
   var hoverOverlay = null;
   var selectOverlay = null;
@@ -59,10 +61,24 @@ function bridgeScript(token: string): string {
     return styles;
   }
 
+  function getAttributes(el) {
+    var attrs = {};
+    var tag = el.tagName.toLowerCase();
+    if (tag === "a") {
+      attrs.href = el.getAttribute("href") || "";
+      attrs.target = el.getAttribute("target") || "";
+    }
+    if (tag === "img") {
+      attrs.src = el.getAttribute("src") || "";
+      attrs.alt = el.getAttribute("alt") || "";
+    }
+    return attrs;
+  }
+
   function createOverlay(color, width) {
     var div = document.createElement("div");
     div.style.cssText = "position:absolute;pointer-events:none;z-index:99999;" +
-      "border:" + width + "px solid " + color + ";border-radius:2px;transition:all 0.1s ease;";
+      "border:" + width + "px solid " + color + ";border-radius:2px;transition:all 0.1s ease;display:none;";
     document.body.appendChild(div);
     return div;
   }
@@ -81,13 +97,30 @@ function bridgeScript(token: string): string {
     if (overlay) overlay.style.display = "none";
   }
 
-  hoverOverlay = createOverlay("rgba(59,130,246,0.5)", 2);
-  selectOverlay = createOverlay("rgba(59,130,246,1)", 2);
-  hideOverlay(hoverOverlay);
-  hideOverlay(selectOverlay);
+  function removeOverlay(overlay) {
+    if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay);
+  }
+
+  function activate() {
+    if (active) return;
+    active = true;
+    hoverOverlay = createOverlay("rgba(59,130,246,0.5)", 2);
+    selectOverlay = createOverlay("rgba(59,130,246,1)", 2);
+  }
+
+  function deactivate() {
+    if (!active) return;
+    active = false;
+    selected = null;
+    editing = false;
+    removeOverlay(hoverOverlay);
+    removeOverlay(selectOverlay);
+    hoverOverlay = null;
+    selectOverlay = null;
+  }
 
   document.addEventListener("mouseover", function(e) {
-    if (editing) return;
+    if (!active || editing) return;
     var el = e.target;
     if (el === document.body || el === document.documentElement) {
       hideOverlay(hoverOverlay);
@@ -107,6 +140,7 @@ function bridgeScript(token: string): string {
   }, true);
 
   document.addEventListener("mouseout", function(e) {
+    if (!active) return;
     if (!e.relatedTarget || e.relatedTarget === document) {
       hideOverlay(hoverOverlay);
       send({ type: "ELEMENT_HOVERED", hover: null });
@@ -114,7 +148,7 @@ function bridgeScript(token: string): string {
   }, true);
 
   document.addEventListener("click", function(e) {
-    if (editing) return;
+    if (!active || editing) return;
     e.preventDefault();
     e.stopPropagation();
     var el = e.target;
@@ -127,7 +161,8 @@ function bridgeScript(token: string): string {
         cssPath: getCssPath(el),
         tagName: el.tagName.toLowerCase(),
         textContent: (el.textContent || "").trim().slice(0, 100),
-        styles: getStyles(el)
+        styles: getStyles(el),
+        attributes: getAttributes(el)
       }
     });
   }, true);
@@ -150,6 +185,7 @@ function bridgeScript(token: string): string {
   }
 
   document.addEventListener("dblclick", function(e) {
+    if (!active) return;
     e.preventDefault();
     e.stopPropagation();
     var el = e.target;
@@ -200,6 +236,16 @@ function bridgeScript(token: string): string {
     var data = e.data;
     if (!data || data.source !== SOURCE || data.token !== TOKEN) return;
 
+    if (data.type === "ACTIVATE") {
+      activate();
+      return;
+    }
+
+    if (data.type === "DEACTIVATE") {
+      deactivate();
+      return;
+    }
+
     if (data.type === "APPLY_STYLE") {
       var target = data.cssPath ? document.querySelector(data.cssPath) : null;
       if (target) {
@@ -218,7 +264,8 @@ function bridgeScript(token: string): string {
             cssPath: getCssPath(el),
             tagName: el.tagName.toLowerCase(),
             textContent: (el.textContent || "").trim().slice(0, 100),
-            styles: getStyles(el)
+            styles: getStyles(el),
+            attributes: getAttributes(el)
           }
         });
       }

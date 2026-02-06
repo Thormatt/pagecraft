@@ -70,10 +70,8 @@ export const HtmlPreview = forwardRef<HtmlPreviewHandle, HtmlPreviewProps>(
       [postToIframe]
     );
 
-    // Listen for messages from the iframe bridge
+    // Listen for messages from the iframe bridge (always active)
     useEffect(() => {
-      if (!editorMode) return;
-
       const handler = (e: MessageEvent) => {
         if (!isBridgeMessage(e.data, tokenRef.current)) return;
         const data = e.data as { type: string } & IframeToParentMessage;
@@ -96,10 +94,9 @@ export const HtmlPreview = forwardRef<HtmlPreviewHandle, HtmlPreviewProps>(
 
       window.addEventListener("message", handler);
       return () => window.removeEventListener("message", handler);
-    }, [editorMode, onElementSelected, onElementHovered, onTextChanged]);
+    }, [onElementSelected, onElementHovered, onTextChanged]);
 
-    // Load HTML into iframe via Blob URL
-    // Use previewHtml (which doesn't change on style-only edits) to avoid reloads
+    // Load HTML into iframe via Blob URL (bridge always injected but dormant)
     const sourceHtml = previewHtml ?? html;
 
     useEffect(() => {
@@ -109,16 +106,19 @@ export const HtmlPreview = forwardRef<HtmlPreviewHandle, HtmlPreviewProps>(
       setBridgeReady(false);
       tokenRef.current = generateToken();
 
-      const finalHtml = editorMode
-        ? injectEditorBridge(sourceHtml, tokenRef.current)
-        : sourceHtml;
-
+      const finalHtml = injectEditorBridge(sourceHtml, tokenRef.current);
       const blob = new Blob([finalHtml], { type: "text/html" });
       const url = URL.createObjectURL(blob);
       iframe.src = url;
 
       return () => URL.revokeObjectURL(url);
-    }, [sourceHtml, editorMode]);
+    }, [sourceHtml]);
+
+    // Activate/deactivate bridge when editor mode changes (no iframe reload)
+    useEffect(() => {
+      if (!bridgeReady) return;
+      postToIframe({ type: editorMode ? "ACTIVATE" : "DEACTIVATE" });
+    }, [editorMode, bridgeReady, postToIframe]);
 
     return (
       <iframe

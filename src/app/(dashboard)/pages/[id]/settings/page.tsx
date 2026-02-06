@@ -7,12 +7,14 @@ import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { isValidSlug } from "@/lib/utils";
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import type { Page } from "@/types";
+import Link from "next/link";
+import type { Page, Profile } from "@/types/database";
 
 export default function PageSettingsPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const [page, setPage] = useState<Page | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [title, setTitle] = useState("");
   const [slug, setSlug] = useState("");
   const [description, setDescription] = useState("");
@@ -22,24 +24,34 @@ export default function PageSettingsPage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [viewsData, setViewsData] = useState<{ day: string; count: number }[]>([]);
 
   useEffect(() => {
-    async function loadPage() {
-      const response = await fetch(`/api/pages/${id}`);
-      if (!response.ok) {
+    async function loadData() {
+      const [pageRes, profileRes] = await Promise.all([
+        fetch(`/api/pages/${id}`),
+        fetch("/api/profile"),
+      ]);
+
+      if (!pageRes.ok) {
         router.push("/dashboard");
         return;
       }
-      const data: Page = await response.json();
-      setPage(data);
-      setTitle(data.title);
-      setSlug(data.slug);
-      setDescription(data.description ?? "");
-      setIsPublished(data.is_published);
+
+      const pageData: Page = await pageRes.json();
+      setPage(pageData);
+      setTitle(pageData.title);
+      setSlug(pageData.slug);
+      setDescription(pageData.description ?? "");
+      setIsPublished(pageData.is_published);
+
+      if (profileRes.ok) {
+        const profileData: Profile = await profileRes.json();
+        setProfile(profileData);
+      }
+
       setLoading(false);
     }
-    loadPage();
+    loadData();
   }, [id, router]);
 
   const handleSave = async () => {
@@ -119,9 +131,22 @@ export default function PageSettingsPage() {
               value={slug}
               onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
             />
-            <p className="text-xs text-muted-foreground">
-              Available at /p/{slug}
-            </p>
+            {profile?.username ? (
+              <p className="text-xs text-muted-foreground">
+                Available at <span className="font-mono">/p/{profile.username}/{slug}</span>
+              </p>
+            ) : (
+              <div className="rounded-md bg-amber-50 border border-amber-200 p-2.5 text-xs">
+                <p className="text-amber-800 font-medium">Username not set</p>
+                <p className="text-amber-700 mt-0.5">
+                  Set a username in{" "}
+                  <Link href="/settings" className="underline hover:no-underline">
+                    Settings
+                  </Link>{" "}
+                  for professional URLs
+                </p>
+              </div>
+            )}
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium">Description</label>

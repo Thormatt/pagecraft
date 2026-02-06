@@ -1,27 +1,39 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { ThemeCard } from "@/components/themes/theme-card";
 import { ThemeRow } from "@/components/themes/theme-row";
 import { ViewToggle } from "@/components/themes/view-toggle";
 import { AddThemeDialog } from "@/components/themes/add-theme-dialog";
 import { EditThemeDialog } from "@/components/themes/edit-theme-dialog";
+import { TemplatePreviewCard } from "@/components/themes/template-preview-card";
+import { TemplatePreviewDialog } from "@/components/themes/template-preview-dialog";
+import { STARTER_TEMPLATES, type StarterTemplate } from "@/data/starter-templates";
 import type { BrandProfile } from "@/types/database";
 
 const VIEW_STORAGE_KEY = "themes-view";
+const TAB_STORAGE_KEY = "themes-tab";
 
 export default function ThemesPage() {
+  const router = useRouter();
   const [themes, setThemes] = useState<BrandProfile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [view, setView] = useState<"grid" | "list">("grid");
+  const [activeTab, setActiveTab] = useState<"themes" | "templates">("themes");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingTheme, setEditingTheme] = useState<BrandProfile | null>(null);
+  const [previewTemplate, setPreviewTemplate] = useState<StarterTemplate | null>(null);
 
   useEffect(() => {
     const savedView = localStorage.getItem(VIEW_STORAGE_KEY);
     if (savedView === "grid" || savedView === "list") {
       setView(savedView);
+    }
+    const savedTab = localStorage.getItem(TAB_STORAGE_KEY);
+    if (savedTab === "themes" || savedTab === "templates") {
+      setActiveTab(savedTab);
     }
   }, []);
 
@@ -70,38 +82,88 @@ export default function ThemesPage() {
     setEditingTheme(null);
   };
 
+  const handleTabChange = (tab: "themes" | "templates") => {
+    setActiveTab(tab);
+    localStorage.setItem(TAB_STORAGE_KEY, tab);
+  };
+
+  const handleUseTemplate = (template: StarterTemplate) => {
+    sessionStorage.setItem("starter-template-html", template.html);
+    router.push("/generate");
+  };
+
   return (
     <div className="flex-1 p-6">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-semibold">Themes</h1>
+          <h1 className="text-2xl font-semibold">Themes & Templates</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Manage your design themes with colors, fonts, and layouts
+            Manage your design themes and browse starter templates
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <ViewToggle view={view} onViewChange={handleViewChange} />
-          <Button onClick={() => setIsAddDialogOpen(true)}>
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="mr-2"
-            >
-              <path d="M12 5v14" />
-              <path d="M5 12h14" />
-            </svg>
-            Add Theme
-          </Button>
+          {activeTab === "themes" && (
+            <>
+              <ViewToggle view={view} onViewChange={handleViewChange} />
+              <Button onClick={() => setIsAddDialogOpen(true)}>
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="mr-2"
+                >
+                  <path d="M12 5v14" />
+                  <path d="M5 12h14" />
+                </svg>
+                Add Theme
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
-      {isLoading ? (
+      {/* Tab switcher */}
+      <div className="flex rounded-lg border p-1 w-fit mb-6">
+        <button
+          onClick={() => handleTabChange("themes")}
+          className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${
+            activeTab === "themes"
+              ? "bg-foreground text-background"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Themes
+        </button>
+        <button
+          onClick={() => handleTabChange("templates")}
+          className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${
+            activeTab === "templates"
+              ? "bg-foreground text-background"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Templates
+        </button>
+      </div>
+
+      {activeTab === "templates" ? (
+        /* Templates Tab */
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {STARTER_TEMPLATES.map((template) => (
+            <TemplatePreviewCard
+              key={template.id}
+              template={template}
+              onClick={() => setPreviewTemplate(template)}
+              onUse={() => handleUseTemplate(template)}
+            />
+          ))}
+        </div>
+      ) : isLoading ? (
         <div className="flex items-center justify-center py-12">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
         </div>
@@ -184,6 +246,15 @@ export default function ThemesPage() {
           onThemeDeleted={handleThemeDeleted}
         />
       )}
+
+      <TemplatePreviewDialog
+        template={previewTemplate}
+        onClose={() => setPreviewTemplate(null)}
+        onUse={(template) => {
+          setPreviewTemplate(null);
+          handleUseTemplate(template);
+        }}
+      />
     </div>
   );
 }

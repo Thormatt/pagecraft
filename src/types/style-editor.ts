@@ -3,6 +3,7 @@ export interface ElementInfo {
   tagName: string;
   textContent: string;
   styles: Record<string, string>;
+  attributes?: Record<string, string>;
 }
 
 export interface HoverInfo {
