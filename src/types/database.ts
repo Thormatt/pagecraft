@@ -8,6 +8,7 @@ export interface Page {
   prompt_history: PromptMessage[];
   view_count: number;
   is_published: boolean;
+  brand_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -25,5 +26,33 @@ export interface PromptMessage {
   content: string;
 }
 
+export interface BrandProfile {
+  id: string;
+  user_id: string;
+  name: string;
+  source_url: string;
+  logo_url: string | null;
+  colors: string[];
+  fonts: string[];
+  styles: Record<string, unknown>;
+  screenshot: string | null;
+  is_default: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Document {
+  id: string;
+  user_id: string;
+  filename: string;
+  mime_type: string;
+  file_size: number;
+  content: string;
+  content_type: "pdf" | "docx" | "xlsx" | "csv" | "txt";
+  created_at: string;
+}
+
 export type PageInsert = Omit<Page, "id" | "created_at" | "updated_at" | "view_count">;
-export type PageUpdate = Partial<Pick<Page, "title" | "slug" | "description" | "html_content" | "prompt_history" | "is_published">>;
+export type PageUpdate = Partial<Pick<Page, "title" | "slug" | "description" | "html_content" | "prompt_history" | "is_published" | "brand_id">>;
+export type BrandProfileInsert = Omit<BrandProfile, "id" | "created_at" | "updated_at">;
+export type DocumentInsert = Omit<Document, "id" | "created_at">;

@@ -4,10 +4,19 @@ import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { BrandSelector } from "@/components/generate/brand-selector";
+import { FileUpload } from "@/components/generate/file-upload";
 import { extractHtml } from "@/lib/ai/prompt";
 import { useEffect, useRef, useCallback, useState, useMemo } from "react";
 import type { UIMessage } from "ai";
-import type { PromptMessage } from "@/types";
+import type { PromptMessage, BrandProfile } from "@/types";
+
+interface UploadedDocument {
+  id: string;
+  filename: string;
+  content_type: string;
+  file_size: number;
+}
 
 function getTextContent(message: UIMessage): string {
   return message.parts
@@ -21,6 +30,7 @@ interface ChatInterfaceProps {
   onMessagesUpdate: (messages: PromptMessage[]) => void;
   initialMessages?: PromptMessage[];
   initialHtml?: string;
+  initialBrandId?: string;
 }
 
 export function ChatInterface({
@@ -30,13 +40,21 @@ export function ChatInterface({
   initialHtml,
 }: ChatInterfaceProps) {
   const [inputValue, setInputValue] = useState("");
+  const [selectedBrand, setSelectedBrand] = useState<BrandProfile | null>(null);
+  const [attachedDocuments, setAttachedDocuments] = useState<UploadedDocument[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const latestHtmlRef = useRef(initialHtml ?? "");
 
-  const transport = useMemo(
-    () => new DefaultChatTransport({ api: "/api/generate" }),
-    []
-  );
+  // Custom transport that includes brand_id and document_ids
+  const transport = useMemo(() => {
+    return new DefaultChatTransport({
+      api: "/api/generate",
+      body: {
+        brand_id: selectedBrand?.id,
+        document_ids: attachedDocuments.map((d) => d.id),
+      },
+    });
+  }, [selectedBrand, attachedDocuments]);
 
   const { messages, status, sendMessage } = useChat({
     transport,
@@ -141,12 +159,26 @@ export function ChatInterface({
         <div ref={messagesEndRef} />
       </div>
       <form onSubmit={handleSubmit} className="border-t p-4">
+        <div className="flex items-center gap-2 mb-2">
+          <BrandSelector
+            selectedBrand={selectedBrand}
+            onBrandChange={setSelectedBrand}
+          />
+          <FileUpload
+            documents={attachedDocuments}
+            onDocumentsChange={setAttachedDocuments}
+          />
+        </div>
         <div className="flex gap-2">
           <Textarea
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Describe your page or request changes..."
+            placeholder={
+              attachedDocuments.length > 0
+                ? "Describe what to create from these files..."
+                : "Describe your page or request changes..."
+            }
             className="min-h-[44px] max-h-32 resize-none"
             rows={1}
             disabled={isLoading}

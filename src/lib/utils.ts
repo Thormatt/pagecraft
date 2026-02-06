@@ -1,4 +1,6 @@
-import { nanoid } from "nanoid";
+import { customAlphabet } from "nanoid";
+
+const nanoid = customAlphabet("abcdefghijklmnopqrstuvwxyz0123456789", 6);
 
 export function generateSlug(title: string): string {
   const base = title
@@ -9,7 +11,7 @@ export function generateSlug(title: string): string {
     .replace(/^-|-$/g, "")
     .slice(0, 40);
 
-  const suffix = nanoid(6);
+  const suffix = nanoid();
   return base ? `${base}-${suffix}` : suffix;
 }
 

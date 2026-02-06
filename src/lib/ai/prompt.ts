@@ -1,3 +1,5 @@
+import type { BrandProfile } from "@/types/database";
+
 export const SYSTEM_PROMPT = `You are an expert HTML page generator. Your job is to create beautiful, complete, self-contained HTML pages based on user descriptions.
 
 Rules:
@@ -15,6 +17,39 @@ Rules:
 12. Do NOT include any explanation text — only return the HTML document
 
 When the user asks you to modify an existing page, incorporate their changes while preserving the overall structure and style unless they ask for a complete redesign.`;
+
+/**
+ * Build system prompt with optional brand guidelines
+ */
+export function buildSystemPrompt(brand?: BrandProfile | null): string {
+  if (!brand) return SYSTEM_PROMPT;
+
+  const brandColors = Array.isArray(brand.colors) ? brand.colors : [];
+  const brandFonts = Array.isArray(brand.fonts) ? brand.fonts : [];
+
+  let brandGuidelines = `\n\n## Brand Guidelines
+Apply these brand aesthetics to the page:`;
+
+  if (brandColors.length > 0) {
+    brandGuidelines += `\n\n**Primary Colors:** ${brandColors.slice(0, 4).join(", ")}`;
+    if (brandColors.length > 4) {
+      brandGuidelines += `\n**Accent Colors:** ${brandColors.slice(4).join(", ")}`;
+    }
+  }
+
+  if (brandFonts.length > 0) {
+    brandGuidelines += `\n**Typography:** ${brandFonts.join(", ")}`;
+    brandGuidelines += `\nUse Google Fonts to load these fonts if they are web fonts.`;
+  }
+
+  if (brand.source_url) {
+    brandGuidelines += `\n**Style Reference:** ${brand.source_url}`;
+  }
+
+  brandGuidelines += `\n\nMatch this brand's visual identity in colors, typography, and overall feel. Use the primary colors for backgrounds, buttons, and key UI elements. Use accent colors for highlights and interactive states.`;
+
+  return SYSTEM_PROMPT + brandGuidelines;
+}
 
 export function extractHtml(text: string): string {
   // Try to find HTML in markdown code blocks first
