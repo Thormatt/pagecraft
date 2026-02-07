@@ -41,6 +41,7 @@ export async function updateSession(request: NextRequest) {
       request.nextUrl.pathname.startsWith("/generate") ||
       request.nextUrl.pathname.startsWith("/pages") ||
       request.nextUrl.pathname.startsWith("/themes") ||
+      request.nextUrl.pathname.startsWith("/content") ||
       request.nextUrl.pathname.startsWith("/settings");
 
     if (!user && isProtectedRoute) {

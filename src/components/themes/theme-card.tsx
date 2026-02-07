@@ -10,7 +10,7 @@ interface ThemeCardProps {
 export function ThemeCard({ theme, onClick }: ThemeCardProps) {
   return (
     <div
-      className="group border rounded-lg overflow-hidden cursor-pointer transition-all hover:border-primary/50 hover:shadow-md"
+      className="group border border-border/50 rounded-2xl overflow-hidden cursor-pointer card-glow"
       onClick={onClick}
     >
       {/* Screenshot / Placeholder */}
@@ -61,13 +61,13 @@ export function ThemeCard({ theme, onClick }: ThemeCardProps) {
           {(theme.colors || []).slice(0, 6).map((color, i) => (
             <div
               key={i}
-              className="w-5 h-5 rounded-sm border border-border"
+              className="w-5 h-5 rounded-full border border-border"
               style={{ backgroundColor: color }}
               title={color}
             />
           ))}
           {(theme.colors || []).length > 6 && (
-            <div className="w-5 h-5 rounded-sm bg-muted flex items-center justify-center text-[10px] text-muted-foreground">
+            <div className="w-5 h-5 rounded-full bg-muted flex items-center justify-center text-[10px] text-muted-foreground">
               +{(theme.colors || []).length - 6}
             </div>
           )}

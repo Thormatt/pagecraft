@@ -152,17 +152,17 @@ export default function GeneratePage() {
   }, []);
 
   return (
-    <div className="flex h-[calc(100vh-3.5rem)] flex-col">
-      <div className="flex items-center justify-between border-b px-4 py-2">
+    <div className="flex h-[calc(100vh-4rem)] flex-col">
+      <div className="flex items-center justify-between px-4 py-2">
         <div className="flex items-center gap-2">
           <h1 className="text-sm font-medium">Generate Page</h1>
           {html && (
-            <div className="flex rounded-lg border p-0.5">
+            <div className="flex bg-muted/50 rounded-xl p-1">
               <button
                 onClick={() => setView("preview")}
-                className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
+                className={`rounded-lg px-3 py-1 text-xs font-medium transition-all duration-200 ${
                   view === "preview"
-                    ? "bg-foreground text-background"
+                    ? "tab-pill-active text-foreground"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
@@ -170,9 +170,9 @@ export default function GeneratePage() {
               </button>
               <button
                 onClick={() => setView("code")}
-                className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
+                className={`rounded-lg px-3 py-1 text-xs font-medium transition-all duration-200 ${
                   view === "code"
-                    ? "bg-foreground text-background"
+                    ? "tab-pill-active text-foreground"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
@@ -181,7 +181,7 @@ export default function GeneratePage() {
             </div>
           )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="floating-bar flex items-center gap-2">
           {html && view === "preview" && (
             <Button
               variant={editorOpen ? "default" : "outline"}
@@ -211,15 +211,15 @@ export default function GeneratePage() {
       </div>
       <div className="flex flex-1 overflow-hidden">
         {chatOpen && (
-          <div className="w-full border-r md:w-[400px] relative shrink-0 flex flex-col">
+          <div className="w-full border-r border-border/50 md:w-[400px] relative shrink-0 flex flex-col">
             {/* Mode tabs */}
-            <div className="flex border-b shrink-0">
+            <div className="flex bg-muted/50 m-3 rounded-xl p-1 shrink-0">
               <button
                 onClick={() => setMode("chat")}
-                className={`flex-1 px-4 py-2.5 text-sm font-medium transition-colors ${
+                className={`flex-1 px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
                   mode === "chat"
-                    ? "bg-foreground text-background"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                    ? "tab-pill-active text-foreground"
+                    : "text-muted-foreground hover:text-foreground"
                 }`}
               >
                 <span className="flex items-center justify-center gap-2">
@@ -231,10 +231,10 @@ export default function GeneratePage() {
               </button>
               <button
                 onClick={() => setMode("moodboard")}
-                className={`flex-1 px-4 py-2.5 text-sm font-medium transition-colors ${
+                className={`flex-1 px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
                   mode === "moodboard"
-                    ? "bg-foreground text-background"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                    ? "tab-pill-active text-foreground"
+                    : "text-muted-foreground hover:text-foreground"
                 }`}
               >
                 <span className="flex items-center justify-center gap-2">

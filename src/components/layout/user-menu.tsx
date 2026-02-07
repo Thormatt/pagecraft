@@ -24,14 +24,14 @@ export function UserMenu({ email }: UserMenuProps) {
     <div className="relative">
       <button
         onClick={() => setOpen(!open)}
-        className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-medium text-primary-foreground"
+        className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary/80 text-xs font-medium text-primary-foreground ring-2 ring-primary/20 transition-transform duration-200 hover:scale-105"
       >
         {email[0].toUpperCase()}
       </button>
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-10 z-50 w-56 rounded-lg border bg-background p-2 shadow-lg">
+          <div className="absolute right-0 top-10 z-50 w-56 rounded-xl glass-panel p-2 animate-slide-up">
             <p className="truncate px-2 py-1.5 text-sm text-muted-foreground">
               {email}
             </p>

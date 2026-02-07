@@ -21,7 +21,7 @@ export function SignupForm() {
     setLoading(true);
 
     const supabase = createClient();
-    const { error: authError } = await supabase.auth.signUp({
+    const { data, error: authError } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -32,6 +32,12 @@ export function SignupForm() {
     if (authError) {
       setError(authError.message);
       setLoading(false);
+      return;
+    }
+
+    // If session exists (autoconfirm enabled), redirect to dashboard
+    if (data.session) {
+      router.push("/dashboard");
       return;
     }
 

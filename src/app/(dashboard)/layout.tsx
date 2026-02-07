@@ -22,15 +22,15 @@ export default async function DashboardLayout({
 
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="flex h-14 items-center justify-between px-6">
+      <header className="sticky top-0 z-50 glass-panel">
+        <div className="flex h-16 items-center justify-between px-8">
           <Header />
           <UserMenu email={user.email ?? ""} />
         </div>
       </header>
       <div className="flex flex-1">
         <Sidebar />
-        <main className="flex-1 overflow-auto">{children}</main>
+        <main className="flex-1 overflow-auto app-surface">{children}</main>
       </div>
     </div>
   );

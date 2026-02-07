@@ -29,7 +29,7 @@ export function Dialog({ open, onClose, children, className }: DialogProps) {
       ref={dialogRef}
       onClose={onClose}
       className={cn(
-        "m-auto rounded-xl border border-border bg-card text-card-foreground p-0 shadow-lg backdrop:bg-black/50",
+        "m-auto rounded-2xl border border-border bg-card text-card-foreground p-0 shadow-2xl backdrop:bg-black/50 backdrop:backdrop-blur-sm animate-slide-up",
         className
       )}
     >

@@ -9,12 +9,15 @@ import type { Page } from "@/types";
 
 interface PageCardProps {
   page: Page;
+  username: string | null;
 }
 
-export function PageCard({ page }: PageCardProps) {
+export function PageCard({ page, username }: PageCardProps) {
   const [copied, setCopied] = useState(false);
 
-  const pageUrl = `/p/${page.slug}`;
+  const pageUrl = username
+    ? `/p/${username}/${page.slug}`
+    : `/p/${page.slug}`;
 
   const handleCopyUrl = async () => {
     await navigator.clipboard.writeText(`${window.location.origin}${pageUrl}`);
@@ -45,10 +48,10 @@ export function PageCard({ page }: PageCardProps) {
             )}
           </div>
           <span
-            className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
+            className={`shrink-0 text-xs font-medium ${
               page.is_published
-                ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300"
-                : "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300"
+                ? "status-dot status-dot-live text-green-700 dark:text-green-300"
+                : "status-dot status-dot-draft text-yellow-700 dark:text-yellow-300"
             }`}
           >
             {page.is_published ? "Live" : "Draft"}

@@ -93,10 +93,10 @@ export default function ThemesPage() {
   };
 
   return (
-    <div className="flex-1 p-6">
-      <div className="flex items-center justify-between mb-6">
+    <div className="flex-1 p-8">
+      <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-semibold">Themes & Templates</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Themes & Templates</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Manage your design themes and browse starter templates
           </p>
@@ -128,12 +128,12 @@ export default function ThemesPage() {
       </div>
 
       {/* Tab switcher */}
-      <div className="flex rounded-lg border p-1 w-fit mb-6">
+      <div className="flex bg-muted/50 rounded-xl p-1 w-fit mb-8">
         <button
           onClick={() => handleTabChange("themes")}
-          className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${
+          className={`rounded-lg px-4 py-1.5 text-sm font-medium transition-all duration-200 ${
             activeTab === "themes"
-              ? "bg-foreground text-background"
+              ? "tab-pill-active text-foreground"
               : "text-muted-foreground hover:text-foreground"
           }`}
         >
@@ -141,9 +141,9 @@ export default function ThemesPage() {
         </button>
         <button
           onClick={() => handleTabChange("templates")}
-          className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${
+          className={`rounded-lg px-4 py-1.5 text-sm font-medium transition-all duration-200 ${
             activeTab === "templates"
-              ? "bg-foreground text-background"
+              ? "tab-pill-active text-foreground"
               : "text-muted-foreground hover:text-foreground"
           }`}
         >
@@ -153,7 +153,7 @@ export default function ThemesPage() {
 
       {activeTab === "templates" ? (
         /* Templates Tab */
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
           {STARTER_TEMPLATES.map((template) => (
             <TemplatePreviewCard
               key={template.id}
@@ -197,7 +197,7 @@ export default function ThemesPage() {
           </Button>
         </div>
       ) : view === "grid" ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
           {themes.map((theme) => (
             <ThemeCard
               key={theme.id}

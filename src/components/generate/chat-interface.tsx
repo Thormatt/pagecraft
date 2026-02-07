@@ -5,6 +5,7 @@ import { DefaultChatTransport } from "ai";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { FileUpload } from "@/components/generate/file-upload";
+import { ThemeSelector, type ThemeSelection } from "@/components/generate/theme-selector";
 import { extractHtml, type IconStyle, type ImageMode } from "@/lib/ai/prompt";
 import { useEffect, useRef, useCallback, useState, useMemo } from "react";
 import type { UIMessage } from "ai";
@@ -44,6 +45,7 @@ export function ChatInterface({
   const [attachedDocuments, setAttachedDocuments] = useState<UploadedDocument[]>([]);
   const [iconStyle, setIconStyle] = useState<IconStyle>("svg");
   const [imageMode, setImageMode] = useState<ImageMode>("stock");
+  const [themeSelection, setThemeSelection] = useState<ThemeSelection>({ theme: null, layout: null });
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const latestHtmlRef = useRef(initialHtml ?? "");
 
@@ -58,13 +60,27 @@ export function ChatInterface({
       image_mode: imageMode,
     };
 
-    // Template HTML comes from /themes page via sessionStorage
-    if (initialTemplateHtml) {
+    // Theme/brand selection
+    if (themeSelection.theme) {
+      body.brand_id = themeSelection.theme.id;
+    }
+
+    // Layout selection
+    if (themeSelection.layout) {
+      if (themeSelection.layout.type === "starter" && themeSelection.layout.html) {
+        body.starter_template_html = themeSelection.layout.html;
+      } else if (themeSelection.layout.type === "saved") {
+        body.template_id = themeSelection.layout.id;
+      }
+    }
+
+    // Template HTML comes from /themes page via sessionStorage (fallback if no layout selected)
+    if (initialTemplateHtml && !themeSelection.layout) {
       body.starter_template_html = initialTemplateHtml;
     }
 
     requestBodyRef.current = body;
-  }, [initialTemplateHtml, attachedDocuments, iconStyle, imageMode]);
+  }, [initialTemplateHtml, attachedDocuments, iconStyle, imageMode, themeSelection]);
 
   // Custom transport that reads from the ref for current values
   const transport = useMemo(() => {
@@ -150,6 +166,10 @@ export function ChatInterface({
           <FileUpload
             documents={attachedDocuments}
             onDocumentsChange={setAttachedDocuments}
+          />
+          <ThemeSelector
+            selection={themeSelection}
+            onSelectionChange={setThemeSelection}
           />
           <select
             value={iconStyle}

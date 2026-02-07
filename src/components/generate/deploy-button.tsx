@@ -28,6 +28,7 @@ export function DeployButton({ html, messages, disabled }: DeployButtonProps) {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [slug, setSlug] = useState("");
+  const [slugEdited, setSlugEdited] = useState(false);
   const [description, setDescription] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -55,10 +56,9 @@ export function DeployButton({ html, messages, disabled }: DeployButtonProps) {
     setOpen(true);
     setError("");
     setDeployedPage(null);
+    setSlugEdited(false);
     fetchProfile();
-    if (!slug) {
-      setSlug(generateSlug(title || "page"));
-    }
+    setSlug(generateSlug(title || "page"));
   };
 
   const handleClose = () => {
@@ -70,7 +70,8 @@ export function DeployButton({ html, messages, disabled }: DeployButtonProps) {
 
   const handleTitleChange = (value: string) => {
     setTitle(value);
-    if (!slug || slug === generateSlug("page")) {
+    setError("");
+    if (!slugEdited) {
       setSlug(generateSlug(value || "page"));
     }
   };
@@ -112,7 +113,7 @@ export function DeployButton({ html, messages, disabled }: DeployButtonProps) {
       // Build the public URL
       const pageUrl = profile?.username
         ? `/p/${profile.username}/${slug}`
-        : `/p/${page.id}`;
+        : `/p/${slug}`;
 
       setDeployedPage({
         id: page.id,
@@ -136,7 +137,7 @@ export function DeployButton({ html, messages, disabled }: DeployButtonProps) {
         </svg>
         Deploy
       </Button>
-      <Dialog open={open} onClose={handleClose}>
+      <Dialog open={open} onClose={handleClose} className="w-[480px] max-w-[90vw]">
         {deployedPage ? (
           <>
             <DialogHeader>
@@ -205,27 +206,29 @@ export function DeployButton({ html, messages, disabled }: DeployButtonProps) {
                   <label className="text-sm font-medium">URL Slug</label>
                   <Input
                     value={slug}
-                    onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
+                    onChange={(e) => {
+                      setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""));
+                      setSlugEdited(true);
+                      setError("");
+                    }}
                     placeholder="my-awesome-page"
                   />
-                  {profileLoading ? (
-                    <p className="text-xs text-muted-foreground">Loading...</p>
-                  ) : profile?.username ? (
-                    <p className="text-xs text-muted-foreground">
-                      Available at <span className="font-mono">/p/{profile.username}/{slug || "..."}</span>
-                    </p>
-                  ) : (
-                    <div className="rounded-md bg-amber-50 border border-amber-200 p-2.5 text-xs">
-                      <p className="text-amber-800 font-medium">Username not set</p>
-                      <p className="text-amber-700 mt-0.5">
-                        Set a username in{" "}
-                        <Link href="/settings" className="underline hover:no-underline">
-                          Settings
-                        </Link>{" "}
-                        for professional URLs like <span className="font-mono">/p/yourname/{slug || "page"}</span>
-                      </p>
-                    </div>
-                  )}
+                  <p className="text-xs text-muted-foreground">
+                    {profileLoading ? (
+                      <>Available at <span className="font-mono">/p/{slug || "..."}</span></>
+                    ) : profile?.username ? (
+                      <>Available at <span className="font-mono">/p/{profile.username}/{slug || "..."}</span></>
+                    ) : (
+                      <>
+                        Available at <span className="font-mono">/p/{slug || "..."}</span>
+                        {" · "}
+                        <Link href="/settings" className="text-primary hover:underline">
+                          Set a username
+                        </Link>
+                        {" "}for URLs like <span className="font-mono">/p/you/{slug || "page"}</span>
+                      </>
+                    )}
+                  </p>
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Description (optional)</label>

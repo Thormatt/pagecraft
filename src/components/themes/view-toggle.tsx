@@ -9,13 +9,13 @@ interface ViewToggleProps {
 
 export function ViewToggle({ view, onViewChange }: ViewToggleProps) {
   return (
-    <div className="flex items-center border rounded-lg p-1">
+    <div className="flex items-center bg-muted/50 rounded-xl p-1">
       <button
         onClick={() => onViewChange("grid")}
         className={cn(
-          "p-1.5 rounded transition-colors",
+          "p-1.5 rounded-lg transition-all duration-200",
           view === "grid"
-            ? "bg-muted text-foreground"
+            ? "bg-card shadow-sm text-foreground"
             : "text-muted-foreground hover:text-foreground"
         )}
         title="Grid view"
@@ -39,9 +39,9 @@ export function ViewToggle({ view, onViewChange }: ViewToggleProps) {
       <button
         onClick={() => onViewChange("list")}
         className={cn(
-          "p-1.5 rounded transition-colors",
+          "p-1.5 rounded-lg transition-all duration-200",
           view === "list"
-            ? "bg-muted text-foreground"
+            ? "bg-card shadow-sm text-foreground"
             : "text-muted-foreground hover:text-foreground"
         )}
         title="List view"

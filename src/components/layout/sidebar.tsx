@@ -16,6 +16,28 @@ const NAV_ITEMS = [
     ),
   },
   {
+    label: "Pages",
+    href: "/pages",
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+        <polyline points="14 2 14 8 20 8" />
+        <line x1="16" y1="13" x2="8" y2="13" />
+        <line x1="16" y1="17" x2="8" y2="17" />
+        <polyline points="10 9 9 9 8 9" />
+      </svg>
+    ),
+  },
+  {
+    label: "Generate",
+    href: "/generate",
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+      </svg>
+    ),
+  },
+  {
     label: "Themes",
     href: "/themes",
     icon: (
@@ -29,11 +51,11 @@ const NAV_ITEMS = [
     ),
   },
   {
-    label: "Generate",
-    href: "/generate",
+    label: "Content",
+    href: "/content",
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
       </svg>
     ),
   },
@@ -59,22 +81,22 @@ export function Sidebar() {
   return (
     <aside
       className={cn(
-        "hidden shrink-0 border-r md:flex md:flex-col transition-all duration-200",
-        collapsed ? "w-14" : "w-56"
+        "hidden shrink-0 md:flex md:flex-col transition-all duration-200",
+        collapsed ? "w-16" : "w-60"
       )}
     >
-      <nav className="flex flex-col gap-1 p-2 flex-1">
+      <nav className="flex flex-col gap-1.5 p-3 flex-1">
         {NAV_ITEMS.map((item) => (
           <Link
             key={item.href}
             href={item.href}
             title={collapsed ? item.label : undefined}
             className={cn(
-              "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+              "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200",
               collapsed && "justify-center px-0",
-              pathname === item.href
-                ? "bg-accent text-accent-foreground"
-                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              pathname === item.href || pathname.startsWith(item.href + "/")
+                ? "bg-gradient-to-r from-primary/10 to-primary/5 text-primary nav-pill-active"
+                : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
             )}
           >
             {item.icon}
@@ -82,18 +104,18 @@ export function Sidebar() {
           </Link>
         ))}
       </nav>
-      <nav className="flex flex-col gap-1 p-2 border-t">
+      <nav className="flex flex-col gap-1.5 p-3 border-t">
         {BOTTOM_ITEMS.map((item) => (
           <Link
             key={item.href}
             href={item.href}
             title={collapsed ? item.label : undefined}
             className={cn(
-              "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+              "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200",
               collapsed && "justify-center px-0",
-              pathname === item.href
-                ? "bg-accent text-accent-foreground"
-                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              pathname === item.href || pathname.startsWith(item.href + "/")
+                ? "bg-gradient-to-r from-primary/10 to-primary/5 text-primary nav-pill-active"
+                : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
             )}
           >
             {item.icon}
@@ -102,7 +124,7 @@ export function Sidebar() {
         ))}
         <button
           onClick={() => setCollapsed((prev) => !prev)}
-          className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+          className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted/60 hover:text-foreground transition-all duration-200"
           style={collapsed ? { justifyContent: "center", padding: "8px 0" } : undefined}
           title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         >

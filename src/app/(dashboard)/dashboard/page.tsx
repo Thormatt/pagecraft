@@ -16,20 +16,28 @@ export default async function DashboardPage() {
     redirect("/login");
   }
 
-  const { data: pages } = await supabase
-    .from("pages")
-    .select("*")
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: false });
+  const [{ data: pages }, { data: profile }] = await Promise.all([
+    supabase
+      .from("pages")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("profiles")
+      .select("username")
+      .eq("id", user.id)
+      .single(),
+  ]);
 
   const allPages = (pages ?? []) as Page[];
   const totalViews = allPages.reduce((sum, p) => sum + p.view_count, 0);
   const publishedCount = allPages.filter((p) => p.is_published).length;
+  const username = (profile as { username: string | null } | null)?.username ?? null;
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-8 space-y-8">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Dashboard</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
         <Link href="/generate">
           <Button>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -44,7 +52,7 @@ export default async function DashboardPage() {
         totalViews={totalViews}
         publishedPages={publishedCount}
       />
-      <PageList pages={allPages} />
+      <PageList pages={allPages} username={username} />
     </div>
   );
 }
