@@ -6,7 +6,6 @@ import {
   useCallback,
   useImperativeHandle,
   forwardRef,
-  useState,
 } from "react";
 import { injectEditorBridge } from "@/lib/style-editor/iframe-bridge";
 import { isBridgeMessage, BRIDGE_MESSAGE_PREFIX } from "@/lib/style-editor/protocol";
@@ -40,7 +39,9 @@ export const HtmlPreview = forwardRef<HtmlPreviewHandle, HtmlPreviewProps>(
   ) {
     const iframeRef = useRef<HTMLIFrameElement>(null);
     const tokenRef = useRef(generateToken());
-    const [bridgeReady, setBridgeReady] = useState(false);
+    const bridgeReadyRef = useRef(false);
+    const editorModeRef = useRef(editorMode);
+    useEffect(() => { editorModeRef.current = editorMode; }, [editorMode]);
 
     const postToIframe = useCallback(
       (message: Record<string, unknown>) => {
@@ -78,7 +79,8 @@ export const HtmlPreview = forwardRef<HtmlPreviewHandle, HtmlPreviewProps>(
 
         switch (data.type) {
           case "BRIDGE_READY":
-            setBridgeReady(true);
+            bridgeReadyRef.current = true;
+            postToIframe({ type: editorModeRef.current ? "ACTIVATE" : "DEACTIVATE" });
             break;
           case "ELEMENT_SELECTED":
             if ("element" in data) onElementSelected?.(data.element);
@@ -94,7 +96,7 @@ export const HtmlPreview = forwardRef<HtmlPreviewHandle, HtmlPreviewProps>(
 
       window.addEventListener("message", handler);
       return () => window.removeEventListener("message", handler);
-    }, [onElementSelected, onElementHovered, onTextChanged]);
+    }, [onElementSelected, onElementHovered, onTextChanged, postToIframe]);
 
     // Load HTML into iframe via Blob URL (bridge always injected but dormant)
     const sourceHtml = previewHtml ?? html;
@@ -103,7 +105,7 @@ export const HtmlPreview = forwardRef<HtmlPreviewHandle, HtmlPreviewProps>(
       const iframe = iframeRef.current;
       if (!iframe) return;
 
-      setBridgeReady(false);
+      bridgeReadyRef.current = false;
       tokenRef.current = generateToken();
 
       const finalHtml = injectEditorBridge(sourceHtml, tokenRef.current);
@@ -116,9 +118,9 @@ export const HtmlPreview = forwardRef<HtmlPreviewHandle, HtmlPreviewProps>(
 
     // Activate/deactivate bridge when editor mode changes (no iframe reload)
     useEffect(() => {
-      if (!bridgeReady) return;
+      if (!bridgeReadyRef.current) return;
       postToIframe({ type: editorMode ? "ACTIVATE" : "DEACTIVATE" });
-    }, [editorMode, bridgeReady, postToIframe]);
+    }, [editorMode, postToIframe]);
 
     return (
       <iframe

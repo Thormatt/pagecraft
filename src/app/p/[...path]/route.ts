@@ -93,18 +93,6 @@ export async function GET(
         .single();
       page = data;
     }
-  } else if (path.length === 1) {
-    // Legacy format: /p/slug — kept for backward compatibility only.
-    // New pages require username, so they use /p/username/slug.
-    const [slug] = path;
-    const { data } = await supabase
-      .from("pages")
-      .select("id, html_content, title, is_published")
-      .eq("slug", slug)
-      .eq("is_published", true)
-      .limit(1)
-      .maybeSingle();
-    page = data;
   }
 
   if (!page) {
@@ -148,7 +136,6 @@ export async function GET(
     headers: {
       "Content-Type": "text/html; charset=utf-8",
       "Content-Security-Policy": PUBLIC_PAGE_CSP,
-      "X-Frame-Options": "SAMEORIGIN",
       "X-Content-Type-Options": "nosniff",
       "Referrer-Policy": "strict-origin-when-cross-origin",
     },
@@ -179,7 +166,7 @@ function notFoundHtml(path: string): string {
 <body>
   <div class="container">
     <h1>404</h1>
-    <p>The page <code>/p/${path}</code> doesn't exist or isn't published.</p>
+    <p>The page <code>/p/${escapeHtml(path)}</code> doesn't exist or isn't published.</p>
     <p><a href="/">Go home</a></p>
   </div>
 </body>

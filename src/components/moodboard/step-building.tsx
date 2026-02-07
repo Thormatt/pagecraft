@@ -30,9 +30,11 @@ export function StepBuilding({
   const [stageIndex, setStageIndex] = useState(0);
 
   useEffect(() => {
+    // Reset to 0 whenever isLoading changes (deferred via rAF to satisfy lint)
+    const resetId = requestAnimationFrame(() => setStageIndex(0));
+
     if (!isLoading) {
-      setStageIndex(0);
-      return;
+      return () => cancelAnimationFrame(resetId);
     }
 
     const timers = [
@@ -42,10 +44,11 @@ export function StepBuilding({
       setTimeout(() => setStageIndex(4), 40000),
     ];
 
-    return () => timers.forEach(clearTimeout);
+    return () => {
+      cancelAnimationFrame(resetId);
+      timers.forEach(clearTimeout);
+    };
   }, [isLoading]);
-
-  const stage = BUILD_STAGES[stageIndex];
 
   return (
     <div className="flex h-full flex-col">

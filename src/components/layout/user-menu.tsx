@@ -26,7 +26,7 @@ export function UserMenu({ email }: UserMenuProps) {
         onClick={() => setOpen(!open)}
         className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary/80 text-xs font-medium text-primary-foreground ring-2 ring-primary/20 transition-transform duration-200 hover:scale-105"
       >
-        {email[0].toUpperCase()}
+        {email ? email[0].toUpperCase() : "?"}
       </button>
       {open && (
         <>

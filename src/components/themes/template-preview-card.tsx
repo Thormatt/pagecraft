@@ -23,13 +23,10 @@ export function TemplatePreviewCard({ template, onClick, onUse }: TemplatePrevie
     const iframe = iframeRef.current;
     if (!iframe) return;
 
-    const doc = iframe.contentDocument || iframe.contentWindow?.document;
-    if (!doc) return;
-
-    doc.open();
-    doc.write(template.html);
-    doc.close();
-    setIsLoaded(true);
+    const blob = new Blob([template.html], { type: "text/html" });
+    const url = URL.createObjectURL(blob);
+    iframe.src = url;
+    return () => URL.revokeObjectURL(url);
   }, [template.html]);
 
   // Forward wheel events to iframe scroll for report templates
@@ -74,6 +71,7 @@ export function TemplatePreviewCard({ template, onClick, onUse }: TemplatePrevie
             style={{ width: iframeWidth, height: iframeHeight }}
             title={`${template.name} preview`}
             sandbox="allow-same-origin"
+            onLoad={() => setIsLoaded(true)}
           />
         </div>
         {!isLoaded && (

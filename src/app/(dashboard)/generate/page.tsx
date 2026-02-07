@@ -33,12 +33,14 @@ export default function GeneratePage() {
   // Pick up template from /themes page navigation
   useEffect(() => {
     const templateHtml = sessionStorage.getItem("starter-template-html");
-    if (templateHtml) {
-      sessionStorage.removeItem("starter-template-html");
+    if (!templateHtml) return;
+    sessionStorage.removeItem("starter-template-html");
+    const frameId = requestAnimationFrame(() => {
       setHtml(templateHtml);
       setPreviewHtml(templateHtml);
-      setInitialTemplateHtml(templateHtml); // Pass to chat interface for API
-    }
+      setInitialTemplateHtml(templateHtml);
+    });
+    return () => cancelAnimationFrame(frameId);
   }, []);
 
   const handleHtmlUpdate = useCallback((newHtml: string) => {

@@ -82,22 +82,26 @@ export function ChatInterface({
     requestBodyRef.current = body;
   }, [initialTemplateHtml, attachedDocuments, iconStyle, imageMode, themeSelection]);
 
-  // Custom transport that reads from the ref for current values
-  const transport = useMemo(() => {
-    return new DefaultChatTransport({
-      api: "/api/generate",
-      fetch: async (input, init) => {
-        // Parse the existing body and merge with our dynamic data
-        const existingBody = init?.body ? JSON.parse(init.body as string) : {};
-        const mergedBody = { ...existingBody, ...requestBodyRef.current };
-        console.log("[chat] Sending request with body:", mergedBody);
-        return fetch(input, {
-          ...init,
-          body: JSON.stringify(mergedBody),
-        });
-      },
-    });
-  }, []);
+  // Custom fetch that merges dynamic body data from the ref
+  const customFetch = useCallback(
+    async (input: RequestInfo | URL, init?: RequestInit) => {
+      const existingBody = init?.body ? JSON.parse(init.body as string) : {};
+      const mergedBody = { ...existingBody, ...requestBodyRef.current };
+      console.log("[chat] Sending request with body:", mergedBody);
+      return fetch(input, {
+        ...init,
+        body: JSON.stringify(mergedBody),
+      });
+    },
+    []
+  );
+
+  /* eslint-disable react-hooks/refs -- ref is captured in closure for async fetch, not read during render */
+  const transport = useMemo(
+    () => new DefaultChatTransport({ api: "/api/generate", fetch: customFetch }),
+    [customFetch]
+  );
+  /* eslint-enable react-hooks/refs */
 
   const { messages, status, sendMessage } = useChat({
     transport,

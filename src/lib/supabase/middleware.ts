@@ -57,7 +57,22 @@ export async function updateSession(request: NextRequest) {
     }
 
     return supabaseResponse;
-  } catch {
+  } catch (e) {
+    console.error("Middleware auth error:", e);
+    const isProtectedRoute =
+      request.nextUrl.pathname.startsWith("/dashboard") ||
+      request.nextUrl.pathname.startsWith("/generate") ||
+      request.nextUrl.pathname.startsWith("/pages") ||
+      request.nextUrl.pathname.startsWith("/themes") ||
+      request.nextUrl.pathname.startsWith("/content") ||
+      request.nextUrl.pathname.startsWith("/settings");
+
+    if (isProtectedRoute) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      return NextResponse.redirect(url);
+    }
+
     return NextResponse.next({ request });
   }
 }
