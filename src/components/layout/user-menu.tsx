@@ -31,7 +31,7 @@ export function UserMenu({ email }: UserMenuProps) {
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-10 z-50 w-56 rounded-xl glass-panel p-2 animate-slide-up">
+          <div className="absolute right-0 top-10 z-50 w-56 rounded-xl border border-border bg-popover p-2 shadow-lg animate-slide-up">
             <p className="truncate px-2 py-1.5 text-sm text-muted-foreground">
               {email}
             </p>
