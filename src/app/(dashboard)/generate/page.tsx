@@ -28,7 +28,9 @@ export default function GeneratePage() {
   const [selectedElement, setSelectedElement] = useState<ElementInfo | null>(null);
   const [initialTemplateHtml, setInitialTemplateHtml] = useState<string | null>(null);
   const [mode, setMode] = useState<GenerateMode>("chat");
+  const [saveMenuOpen, setSaveMenuOpen] = useState(false);
   const previewRef = useRef<HtmlPreviewHandle>(null);
+  const saveMenuRef = useRef<HTMLDivElement>(null);
 
   // Pick up template from /themes page navigation
   useEffect(() => {
@@ -42,6 +44,20 @@ export default function GeneratePage() {
     });
     return () => cancelAnimationFrame(frameId);
   }, []);
+
+  useEffect(() => {
+    if (!saveMenuOpen) return;
+    const onClickOutside = (event: MouseEvent) => {
+      if (
+        saveMenuRef.current &&
+        !saveMenuRef.current.contains(event.target as Node)
+      ) {
+        setSaveMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, [saveMenuOpen]);
 
   const handleHtmlUpdate = useCallback((newHtml: string) => {
     setHtml(newHtml);
@@ -154,12 +170,12 @@ export default function GeneratePage() {
   }, []);
 
   return (
-    <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between px-4 py-2">
-        <div className="flex items-center gap-2">
-          <h1 className="text-sm font-medium">Generate Page</h1>
+    <div className="flex h-[calc(100vh-4rem)] flex-col">
+      <div className="flex items-center justify-between border-b border-border/60 px-4 py-3 md:px-5">
+        <div className="flex items-center gap-3">
+          <h1 className="text-sm font-semibold tracking-tight">Generate Page</h1>
           {html && (
-            <div className="flex bg-muted/50 rounded-xl p-1">
+            <div className="flex rounded-xl border border-border/70 bg-background p-1">
               <button
                 onClick={() => setView("preview")}
                 className={`rounded-lg px-3 py-1 text-xs font-medium transition-all duration-200 ${
@@ -183,12 +199,13 @@ export default function GeneratePage() {
             </div>
           )}
         </div>
-        <div className="floating-bar flex items-center gap-2">
+        <div className="floating-bar flex items-center gap-1.5 p-1.5">
           {html && view === "preview" && (
             <Button
               variant={editorOpen ? "default" : "outline"}
-              size="sm"
+              size="md"
               onClick={toggleEditor}
+              className="rounded-xl"
             >
               <svg
                 className="h-3.5 w-3.5"
@@ -205,10 +222,81 @@ export default function GeneratePage() {
               Style
             </Button>
           )}
-          <ExportButton html={html} disabled={!html} />
-          <SaveDraftButton html={html} messages={messages} disabled={!html} />
-          <SaveTemplateButton html={html} disabled={!html} />
-          <DeployButton html={html} messages={messages} disabled={!html} />
+          <ExportButton
+            html={html}
+            disabled={!html}
+            variant="ghost"
+            size="md"
+            className="rounded-xl text-foreground/80 hover:text-foreground"
+          />
+          <div className="relative" ref={saveMenuRef}>
+            <Button
+              variant="outline"
+              size="md"
+              disabled={!html}
+              onClick={() => setSaveMenuOpen((prev) => !prev)}
+              className="rounded-xl"
+            >
+              <svg
+                className="h-4 w-4"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                <polyline points="17 21 17 13 7 13 7 21" />
+                <polyline points="7 3 7 8 15 8" />
+              </svg>
+              Save
+              <svg
+                className={`h-3 w-3 transition-transform ${saveMenuOpen ? "rotate-180" : ""}`}
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </Button>
+            <div
+              className={`absolute right-0 top-full z-50 mt-2 w-52 rounded-xl border border-border/80 bg-background/95 p-1.5 shadow-lg backdrop-blur-sm transition ${
+                saveMenuOpen
+                  ? "visible scale-100 opacity-100"
+                  : "invisible pointer-events-none scale-95 opacity-0"
+              }`}
+            >
+              <SaveDraftButton
+                html={html}
+                messages={messages}
+                disabled={!html}
+                variant="ghost"
+                size="sm"
+                className="w-full justify-start rounded-lg px-3"
+                onDraftSaved={() => setSaveMenuOpen(false)}
+              />
+              <SaveTemplateButton
+                html={html}
+                disabled={!html}
+                variant="ghost"
+                size="sm"
+                className="w-full justify-start rounded-lg px-3"
+                onTriggerClick={() => setSaveMenuOpen(false)}
+              />
+            </div>
+          </div>
+          <DeployButton
+            html={html}
+            messages={messages}
+            disabled={!html}
+            size="md"
+            variant="default"
+            className="rounded-xl px-5"
+          />
         </div>
       </div>
       <div className="flex flex-1 overflow-hidden">
