@@ -21,14 +21,14 @@ export default async function DashboardLayout({
   }
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <header className="sticky top-0 z-50 glass-panel">
+    <div className="flex h-screen flex-col overflow-hidden">
+      <header className="shrink-0 z-50 glass-panel">
         <div className="flex h-16 items-center justify-between px-8">
           <Header />
           <UserMenu email={user.email ?? ""} />
         </div>
       </header>
-      <div className="flex flex-1">
+      <div className="flex flex-1 overflow-hidden">
         <Sidebar />
         <main className="flex-1 overflow-auto app-surface">{children}</main>
       </div>

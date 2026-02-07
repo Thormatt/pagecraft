@@ -154,7 +154,7 @@ export default function GeneratePage() {
   }, []);
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] flex-col">
+    <div className="flex h-full flex-col">
       <div className="flex items-center justify-between px-4 py-2">
         <div className="flex items-center gap-2">
           <h1 className="text-sm font-medium">Generate Page</h1>
