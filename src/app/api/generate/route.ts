@@ -243,16 +243,18 @@ ${html}
       templateContext = `## CRITICAL: Slideshow Template (MUST PRESERVE FORMAT)
 
 This is a SLIDESHOW/PRESENTATION template. You MUST preserve the slideshow format exactly:
-1. Keep ALL slides as separate sections that display one at a time
+1. Keep ALL slides as separate sections that display one at a time (using the .slide class pattern)
 2. Keep the navigation arrows (prev/next buttons)
 3. Keep the slide counter/indicator (e.g., "1 / 6")
 4. Keep the JavaScript for slide navigation
 5. Keep the 16:9 or presentation aspect ratio
 6. Keep the slide transition effects
+7. PRESERVE THE EXACT CSS COLOR PALETTE AND TYPOGRAPHY from the template
 
 DO NOT convert this into a scrolling landing page. The output MUST be a slideshow presentation.
+DO NOT change the visual design - use the SAME colors, fonts, and styling as the template.
 
-Replace the placeholder content in each slide with the user's requested content, but maintain the exact same number of slides and navigation structure.
+Replace the placeholder content in each slide with the user's requested content, but maintain the exact same number of slides, navigation structure, AND visual styling.
 
 \`\`\`html
 ${starter_template_html}
@@ -261,12 +263,15 @@ ${starter_template_html}
     } else {
       templateContext = `## Template Reference (MUST FOLLOW EXACTLY)
 
-Use this HTML template as your structural and stylistic reference. You MUST:
-1. Match its layout, component structure, design patterns, and CSS styling exactly
-2. Keep the same section arrangement and visual hierarchy
-3. Preserve the exact color palette, typography, and spacing
-4. Replace only the placeholder text content with the user's requested content
-5. Do NOT reorganize sections or change the fundamental layout
+Use this HTML template as your EXACT structural and stylistic foundation. You MUST:
+1. Copy the template's CSS variables, color palette, and typography EXACTLY
+2. Keep the same section arrangement, layout patterns, and visual hierarchy
+3. Preserve all CSS classes and their styling
+4. Keep the same spacing, borders, shadows, and visual effects
+5. Only replace placeholder text content with the user's requested content
+6. Do NOT redesign or restyle - the output should look like it was made with this template
+
+The template's visual design is FINAL. Your job is only to replace content, not to redesign.
 
 \`\`\`html
 ${starter_template_html}

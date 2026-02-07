@@ -8,6 +8,51 @@ interface ExportRequest {
   format?: "a4" | "letter" | "landscape";
 }
 
+/** CSS injected into the page to fix print rendering issues */
+const PRINT_FIX_CSS = `
+  /* Force all elements to be visible in print */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
+  /* Prevent page breaks inside cards and sections */
+  section, .card, [class*="card"], [class*="feature"], [class*="product"],
+  [class*="testimonial"], [class*="benefit"], [class*="pricing"] {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* Force grid/flex layouts to render properly */
+  [style*="display: grid"], [style*="display:grid"],
+  [class*="grid"] {
+    display: grid !important;
+  }
+  [style*="display: flex"], [style*="display:flex"],
+  [class*="flex"] {
+    display: flex !important;
+  }
+
+  /* Ensure images are visible */
+  img {
+    max-width: 100% !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* Ensure SVGs render */
+  svg {
+    display: inline-block !important;
+  }
+
+  /* Ensure background images/gradients print */
+  [style*="background"] {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+`;
+
 export async function POST(request: Request) {
   try {
     const { html, title = "page", format = "a4" }: ExportRequest =
@@ -29,16 +74,40 @@ export async function POST(request: Request) {
 
     // Launch headless browser
     const browser = await chromium.launch({ headless: true });
-    const context = await browser.newContext();
+    const context = await browser.newContext({
+      viewport: { width: 1280, height: 900 },
+    });
     const page = await context.newPage();
 
-    // Set the HTML content
+    // Set the HTML content and wait for network to settle
     await page.setContent(html, {
       waitUntil: "networkidle",
     });
 
-    // Wait for fonts and images to load
-    await page.waitForTimeout(1000);
+    // Inject print-fix CSS
+    await page.addStyleTag({ content: PRINT_FIX_CSS });
+
+    // Wait for all images to load (including lazy/external ones)
+    await page.evaluate(async () => {
+      const images = Array.from(document.querySelectorAll("img"));
+      await Promise.all(
+        images.map((img) => {
+          if (img.complete) return Promise.resolve();
+          return new Promise<void>((resolve) => {
+            img.onload = () => resolve();
+            img.onerror = () => resolve();
+          });
+        })
+      );
+
+      // Wait for web fonts
+      if (document.fonts) {
+        await document.fonts.ready;
+      }
+    });
+
+    // Extra buffer for any remaining renders
+    await page.waitForTimeout(2000);
 
     // Generate PDF
     const pdf = await page.pdf({
@@ -46,10 +115,10 @@ export async function POST(request: Request) {
       landscape: pageConfig.landscape,
       printBackground: true,
       margin: {
-        top: "1cm",
-        right: "1cm",
-        bottom: "1cm",
-        left: "1cm",
+        top: "0.5cm",
+        right: "0.5cm",
+        bottom: "0.5cm",
+        left: "0.5cm",
       },
     });
 

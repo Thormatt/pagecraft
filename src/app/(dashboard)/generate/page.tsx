@@ -10,10 +10,13 @@ import { SaveDraftButton } from "@/components/generate/save-draft-button";
 import { StarterTemplateGallery } from "@/components/generate/starter-template-gallery";
 import { ExportButton } from "@/components/generate/export-button";
 import { Button } from "@/components/ui/button";
+import { MoodboardWizard } from "@/components/moodboard/moodboard-wizard";
 import { useState, useCallback, useRef, useEffect } from "react";
 import { applyInlineStyle, applyTextContent, applyAttribute, getElementOuterHtml, replaceElementOuterHtml, insertChildElement } from "@/lib/style-editor/html-mutator";
 import type { PromptMessage } from "@/types";
 import type { ElementInfo } from "@/types/style-editor";
+
+type GenerateMode = "chat" | "moodboard";
 
 export default function GeneratePage() {
   const [html, setHtml] = useState("");
@@ -24,6 +27,7 @@ export default function GeneratePage() {
   const [chatOpen, setChatOpen] = useState(true);
   const [selectedElement, setSelectedElement] = useState<ElementInfo | null>(null);
   const [initialTemplateHtml, setInitialTemplateHtml] = useState<string | null>(null);
+  const [mode, setMode] = useState<GenerateMode>("chat");
   const previewRef = useRef<HtmlPreviewHandle>(null);
 
   // Pick up template from /themes page navigation
@@ -207,18 +211,66 @@ export default function GeneratePage() {
       </div>
       <div className="flex flex-1 overflow-hidden">
         {chatOpen && (
-          <div className="w-full border-r md:w-[400px] relative shrink-0">
-            <ChatInterface
-              onHtmlUpdate={handleHtmlUpdate}
-              onMessagesUpdate={handleMessagesUpdate}
-              initialTemplateHtml={initialTemplateHtml}
-            />
+          <div className="w-full border-r md:w-[400px] relative shrink-0 flex flex-col">
+            {/* Mode tabs */}
+            <div className="flex border-b shrink-0">
+              <button
+                onClick={() => setMode("chat")}
+                className={`flex-1 px-4 py-2.5 text-sm font-medium transition-colors ${
+                  mode === "chat"
+                    ? "bg-foreground text-background"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                }`}
+              >
+                <span className="flex items-center justify-center gap-2">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                  </svg>
+                  Chat
+                </span>
+              </button>
+              <button
+                onClick={() => setMode("moodboard")}
+                className={`flex-1 px-4 py-2.5 text-sm font-medium transition-colors ${
+                  mode === "moodboard"
+                    ? "bg-foreground text-background"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                }`}
+              >
+                <span className="flex items-center justify-center gap-2">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="3" width="7" height="7" />
+                    <rect x="14" y="3" width="7" height="7" />
+                    <rect x="14" y="14" width="7" height="7" />
+                    <rect x="3" y="14" width="7" height="7" />
+                  </svg>
+                  Moodboard
+                </span>
+              </button>
+            </div>
+
+            {/* Content based on mode */}
+            <div className="flex-1 overflow-hidden">
+              {mode === "chat" ? (
+                <ChatInterface
+                  onHtmlUpdate={handleHtmlUpdate}
+                  onMessagesUpdate={handleMessagesUpdate}
+                  initialTemplateHtml={initialTemplateHtml}
+                />
+              ) : (
+                <MoodboardWizard
+                  onHtmlUpdate={handleHtmlUpdate}
+                  onMessagesUpdate={handleMessagesUpdate}
+                />
+              )}
+            </div>
+
             {/* Collapse chat button */}
             {html && (
               <button
                 onClick={() => setChatOpen(false)}
-                className="absolute top-3 right-3 z-10 rounded-md border bg-background p-1 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                title="Hide chat"
+                className="absolute top-12 right-3 z-10 rounded-md border bg-background p-1 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                title="Hide panel"
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M11 19l-7-7 7-7" />
@@ -272,8 +324,19 @@ export default function GeneratePage() {
                 </pre>
               </div>
             )
-          ) : (
+          ) : mode === "chat" ? (
             <StarterTemplateGallery onSelect={handleHtmlUpdate} />
+          ) : (
+            <div className="flex h-full flex-col items-center justify-center text-muted-foreground">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="mb-4 opacity-50">
+                <rect x="3" y="3" width="7" height="7" />
+                <rect x="14" y="3" width="7" height="7" />
+                <rect x="14" y="14" width="7" height="7" />
+                <rect x="3" y="14" width="7" height="7" />
+              </svg>
+              <p className="text-sm font-medium">Your page preview will appear here</p>
+              <p className="text-xs mt-1 opacity-70">Complete the moodboard steps to generate your page</p>
+            </div>
           )}
         </div>
       </div>

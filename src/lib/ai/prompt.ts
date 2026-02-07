@@ -20,6 +20,16 @@ Rules:
 11. Do NOT wrap your response in markdown code blocks — return raw HTML only
 12. Do NOT include any explanation text — only return the HTML document
 
+## Template Following (CRITICAL)
+If the user's message includes a "## Template Reference" or "## CRITICAL: Slideshow Template" section with HTML code, you MUST:
+- Use that template as your structural and stylistic foundation
+- Preserve its exact color palette, typography, spacing, and CSS styling
+- Keep the same section arrangement and visual hierarchy
+- Keep the same CSS class naming patterns and structure
+- Only replace placeholder content (text, headings, descriptions) with the user's requested content
+- Do NOT redesign, reorganize, or change the visual style
+- The output should look like it came from the same designer as the template
+
 When the user asks you to modify an existing page, incorporate their changes while preserving the overall structure and style unless they ask for a complete redesign.`;
 
 interface LayoutData {
@@ -153,6 +163,72 @@ You MUST apply these exact brand aesthetics to the page. Do NOT use generic colo
 
   if (layout?.layoutMap || layout?.layoutHtml) {
     prompt += buildLayoutPrompt(layout);
+  }
+
+  return prompt;
+}
+
+/**
+ * Build system prompt for moodboard-generated pages
+ * Uses analyzed layout structure and concept styling
+ */
+export function buildMoodboardSystemPrompt(
+  layoutAnalysis: { sections: string[]; patterns: string },
+  conceptAnalysis: { colors: string[]; fonts: string[]; mood: string },
+  iconStyle?: IconStyle,
+  imageMode?: ImageMode
+): string {
+  let prompt = SYSTEM_PROMPT;
+
+  // Add layout structure requirements
+  prompt += `\n\n## Layout Structure (MUST FOLLOW)
+${layoutAnalysis.sections.map((s) => `- ${s}`).join("\n")}
+
+Layout patterns: ${layoutAnalysis.patterns}
+
+Follow this section order and structure exactly. Each section should be implemented as described.`;
+
+  // Add visual design requirements
+  prompt += `\n\n## Visual Design (MUST FOLLOW)
+Color Palette: ${conceptAnalysis.colors.join(", ")}
+Typography: ${conceptAnalysis.fonts.join(", ")}
+Visual Mood: ${conceptAnalysis.mood}
+
+Use these EXACT hex colors in your CSS. Define them as CSS custom properties:
+:root {
+  --color-primary: ${conceptAnalysis.colors[0] || "#000000"};
+  --color-secondary: ${conceptAnalysis.colors[1] || "#333333"};
+  --color-accent: ${conceptAnalysis.colors[2] || "#0066cc"};
+  --color-background: ${conceptAnalysis.colors[3] || "#ffffff"};
+  --color-text: ${conceptAnalysis.colors[4] || "#1a1a1a"};
+}
+
+The design should feel ${conceptAnalysis.mood}. Apply this aesthetic consistently throughout all sections.`;
+
+  // Add icon handling
+  if (iconStyle === "svg") {
+    prompt += `\n\n## Icon Style
+Use simple inline SVG icons instead of emoji characters. Keep SVGs clean, single-color, and sized around 20-24px. Never use emoji/unicode symbols.`;
+  } else if (iconStyle === "none") {
+    prompt += `\n\n## Icon Style
+Do NOT use emoji characters, unicode symbols, or any icons. Use only text content.`;
+  }
+
+  // Add image handling
+  if (imageMode === "stock") {
+    prompt += `\n\n## Image Style: Stock Photos
+Use real stock photos from Unsplash for all imagery. Do NOT use placeholder images or generic colored boxes.
+${getPhotoReferenceForPrompt()}
+Choose appropriate images that match the content and visual mood.`;
+  } else if (imageMode === "ai") {
+    prompt += `\n\n## Image Style: AI-Generated (Placeholder Markers)
+When you need images, insert placeholder markers in this format: {{IMAGE:description}}
+For example: {{IMAGE:modern office space with natural lighting}}
+These markers will be replaced with AI-generated images after the page is created.`;
+  } else if (imageMode === "none") {
+    prompt += `\n\n## Image Style: No Images
+Do NOT include any images. Use text, icons, and CSS styling only.
+You may use CSS gradients and backgrounds for visual interest, but no <img> tags.`;
   }
 
   return prompt;

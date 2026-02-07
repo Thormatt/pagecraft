@@ -1,0 +1,27 @@
+-- Remove debug functions
+DROP FUNCTION IF EXISTS public.debug_auth_triggers();
+DROP FUNCTION IF EXISTS public.debug_test_profile_insert();
+DROP FUNCTION IF EXISTS public.debug_check_constraints();
+DROP FUNCTION IF EXISTS public.debug_auth_schema();
+DROP FUNCTION IF EXISTS public.debug_auth_constraints();
+DROP FUNCTION IF EXISTS public.debug_auth_extensions();
+DROP FUNCTION IF EXISTS public.debug_test_signup();
+DROP FUNCTION IF EXISTS public.debug_all_auth_triggers();
+DROP FUNCTION IF EXISTS public.debug_test_as_auth_admin();
+DROP FUNCTION IF EXISTS public.debug_table_owner();
+DROP FUNCTION IF EXISTS public.debug_func_owner();
+DROP FUNCTION IF EXISTS public.debug_auth_hooks();
+DROP FUNCTION IF EXISTS public.debug_existing_emails();
+DROP FUNCTION IF EXISTS public.debug_identities_count();
+DROP FUNCTION IF EXISTS public.debug_unique_indexes();
+DROP FUNCTION IF EXISTS public.debug_schema_grants();
+DROP FUNCTION IF EXISTS public.debug_role_members();
+DROP FUNCTION IF EXISTS public.debug_identities_schema();
+DROP FUNCTION IF EXISTS public.debug_identities_indexes();
+DROP FUNCTION IF EXISTS public.debug_all_triggers_in_auth();
+DROP FUNCTION IF EXISTS public.debug_recent_errors();
+DROP FUNCTION IF EXISTS public.debug_identities_constraints();
+DROP FUNCTION IF EXISTS public.debug_auth_roles();
+DROP FUNCTION IF EXISTS public.debug_auth_grants();
+DROP FUNCTION IF EXISTS public.debug_event_triggers();
+DROP FUNCTION IF EXISTS public.debug_function_source();

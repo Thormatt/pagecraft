@@ -4,7 +4,6 @@ import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { ThemeSelector, type ThemeSelection } from "@/components/generate/theme-selector";
 import { FileUpload } from "@/components/generate/file-upload";
 import { extractHtml, type IconStyle, type ImageMode } from "@/lib/ai/prompt";
 import { useEffect, useRef, useCallback, useState, useMemo } from "react";
@@ -42,10 +41,6 @@ export function ChatInterface({
   initialTemplateHtml,
 }: ChatInterfaceProps) {
   const [inputValue, setInputValue] = useState("");
-  const [themeSelection, setThemeSelection] = useState<ThemeSelection>({
-    theme: null,
-    layout: initialTemplateHtml ? { type: "starter", id: "initial", name: "Template", html: initialTemplateHtml } : null,
-  });
   const [attachedDocuments, setAttachedDocuments] = useState<UploadedDocument[]>([]);
   const [iconStyle, setIconStyle] = useState<IconStyle>("svg");
   const [imageMode, setImageMode] = useState<ImageMode>("stock");
@@ -55,17 +50,7 @@ export function ChatInterface({
   // Store request body in a ref so it's always current
   const requestBodyRef = useRef<Record<string, unknown>>({});
 
-  // Update layout when initialTemplateHtml changes (from sessionStorage)
-  useEffect(() => {
-    if (initialTemplateHtml && !themeSelection.layout) {
-      setThemeSelection((prev) => ({
-        ...prev,
-        layout: { type: "starter", id: "initial", name: "Template", html: initialTemplateHtml },
-      }));
-    }
-  }, [initialTemplateHtml, themeSelection.layout]);
-
-  // Update the ref whenever theme selection changes
+  // Update the ref whenever options change
   useEffect(() => {
     const body: Record<string, unknown> = {
       document_ids: attachedDocuments.map((d) => d.id),
@@ -73,22 +58,13 @@ export function ChatInterface({
       image_mode: imageMode,
     };
 
-    if (themeSelection.theme) {
-      body.brand_id = themeSelection.theme.id;
-    }
-
-    if (themeSelection.layout) {
-      if (themeSelection.layout.type === "starter" && themeSelection.layout.html) {
-        body.starter_template_html = themeSelection.layout.html;
-      } else if (themeSelection.layout.type === "saved") {
-        body.layout_id = themeSelection.layout.id;
-        body.layout_type = "template";
-      }
+    // Template HTML comes from /themes page via sessionStorage
+    if (initialTemplateHtml) {
+      body.starter_template_html = initialTemplateHtml;
     }
 
     requestBodyRef.current = body;
-    console.log("[chat] Updated request body:", requestBodyRef.current);
-  }, [themeSelection, attachedDocuments, iconStyle, imageMode]);
+  }, [initialTemplateHtml, attachedDocuments, iconStyle, imageMode]);
 
   // Custom transport that reads from the ref for current values
   const transport = useMemo(() => {
@@ -169,58 +145,8 @@ export function ChatInterface({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex-1 overflow-auto p-4 space-y-4">
-        {messages.length === 0 && (
-          <div className="flex h-full items-center justify-center text-center">
-            <div className="space-y-2">
-              <p className="text-lg font-medium">Describe the page you want to create</p>
-              <p className="text-sm text-muted-foreground">
-                e.g. &quot;A landing page for a coffee shop with a hero section, menu, and contact form&quot;
-              </p>
-            </div>
-          </div>
-        )}
-        {messages.map((message) => {
-          const text = getTextContent(message);
-          return (
-            <div
-              key={message.id}
-              className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
-            >
-              <div
-                className={`max-w-[85%] rounded-lg px-4 py-2 text-sm ${
-                  message.role === "user"
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted"
-                }`}
-              >
-                {message.role === "user" ? (
-                  <p className="whitespace-pre-wrap">{text}</p>
-                ) : (
-                  <p className="text-muted-foreground">
-                    {isLoading && message.id === messages[messages.length - 1]?.id
-                      ? "Generating..."
-                      : "HTML generated. See preview."}
-                  </p>
-                )}
-              </div>
-            </div>
-          );
-        })}
-        <div ref={messagesEndRef} />
-      </div>
-      <form onSubmit={handleSubmit} className="border-t p-4">
+      <form onSubmit={handleSubmit} className="border-b p-4 shrink-0">
         <div className="flex items-center gap-2 mb-2 flex-wrap">
-          <ThemeSelector
-            selection={themeSelection}
-            onSelectionChange={(sel) => {
-              setThemeSelection(sel);
-              // Show layout preview immediately when a starter template is selected
-              if (sel.layout?.type === "starter" && sel.layout.html) {
-                onHtmlUpdate(sel.layout.html);
-              }
-            }}
-          />
           <FileUpload
             documents={attachedDocuments}
             onDocumentsChange={setAttachedDocuments}
@@ -273,6 +199,46 @@ export function ChatInterface({
           </Button>
         </div>
       </form>
+      <div className="flex-1 overflow-auto p-4 space-y-4">
+        {messages.length === 0 && (
+          <div className="flex h-full items-center justify-center text-center">
+            <div className="space-y-2">
+              <p className="text-lg font-medium">Describe the page you want to create</p>
+              <p className="text-sm text-muted-foreground">
+                e.g. &quot;A landing page for a coffee shop with a hero section, menu, and contact form&quot;
+              </p>
+            </div>
+          </div>
+        )}
+        {messages.map((message) => {
+          const text = getTextContent(message);
+          return (
+            <div
+              key={message.id}
+              className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
+            >
+              <div
+                className={`max-w-[85%] rounded-lg px-4 py-2 text-sm ${
+                  message.role === "user"
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted"
+                }`}
+              >
+                {message.role === "user" ? (
+                  <p className="whitespace-pre-wrap">{text}</p>
+                ) : (
+                  <p className="text-muted-foreground">
+                    {isLoading && message.id === messages[messages.length - 1]?.id
+                      ? "Generating..."
+                      : "HTML generated. See preview."}
+                  </p>
+                )}
+              </div>
+            </div>
+          );
+        })}
+        <div ref={messagesEndRef} />
+      </div>
     </div>
   );
 }

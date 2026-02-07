@@ -23,12 +23,18 @@ function TemplateCard({
   const containerRef = useRef<HTMLDivElement>(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [scale, setScale] = useState(0);
+  const hasWrittenRef = useRef(false);
 
   const isSlides = template.category === "slides";
   const iframeWidth = 1280;
   const iframeHeight = isSlides ? 720 : 4000;
 
   useEffect(() => {
+    // Don't try to write until iframe is rendered (scale > 0)
+    if (scale === 0) return;
+    // Only write once
+    if (hasWrittenRef.current) return;
+
     const iframe = iframeRef.current;
     if (!iframe) return;
 
@@ -38,8 +44,9 @@ function TemplateCard({
     doc.open();
     doc.write(template.html);
     doc.close();
+    hasWrittenRef.current = true;
     setIsLoaded(true);
-  }, [template.html]);
+  }, [template.html, scale]);
 
   // Dynamically compute scale to fill card width
   useEffect(() => {
