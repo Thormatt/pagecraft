@@ -77,6 +77,10 @@ export function DeployButton({ html, messages, disabled }: DeployButtonProps) {
   };
 
   const handleDeploy = async () => {
+    if (!profile?.username) {
+      setError("A username is required to deploy. Set one in Settings.");
+      return;
+    }
     if (!title.trim()) {
       setError("Title is required");
       return;
@@ -110,10 +114,7 @@ export function DeployButton({ html, messages, disabled }: DeployButtonProps) {
       }
 
       const page = await response.json();
-      // Build the public URL
-      const pageUrl = profile?.username
-        ? `/p/${profile.username}/${slug}`
-        : `/p/${slug}`;
+      const pageUrl = `/p/${profile.username}/${slug}`;
 
       setDeployedPage({
         id: page.id,
@@ -193,62 +194,82 @@ export function DeployButton({ html, messages, disabled }: DeployButtonProps) {
               <DialogTitle>Deploy your page</DialogTitle>
             </DialogHeader>
             <DialogContent>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Title</label>
-                  <Input
-                    value={title}
-                    onChange={(e) => handleTitleChange(e.target.value)}
-                    placeholder="My awesome page"
-                  />
+              {profileLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
                 </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">URL Slug</label>
-                  <Input
-                    value={slug}
-                    onChange={(e) => {
-                      setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""));
-                      setSlugEdited(true);
-                      setError("");
-                    }}
-                    placeholder="my-awesome-page"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    {profileLoading ? (
-                      <>Available at <span className="font-mono">/p/{slug || "..."}</span></>
-                    ) : profile?.username ? (
-                      <>Available at <span className="font-mono">/p/{profile.username}/{slug || "..."}</span></>
-                    ) : (
-                      <>
-                        Available at <span className="font-mono">/p/{slug || "..."}</span>
-                        {" · "}
-                        <Link href="/settings" className="text-primary hover:underline">
-                          Set a username
-                        </Link>
-                        {" "}for URLs like <span className="font-mono">/p/you/{slug || "page"}</span>
-                      </>
-                    )}
-                  </p>
+              ) : !profile?.username ? (
+                <div className="flex flex-col items-center text-center py-4 space-y-3">
+                  <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground">
+                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                      <circle cx="12" cy="7" r="4" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="font-medium">Username required</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Set a username to create your public page URL.
+                    </p>
+                  </div>
+                  <Link href="/settings" onClick={() => setOpen(false)}>
+                    <Button>Go to Settings</Button>
+                  </Link>
                 </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Description (optional)</label>
-                  <Input
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    placeholder="A short description of your page"
-                  />
+              ) : (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Title</label>
+                    <Input
+                      value={title}
+                      onChange={(e) => handleTitleChange(e.target.value)}
+                      placeholder="My awesome page"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">URL Slug</label>
+                    <Input
+                      value={slug}
+                      onChange={(e) => {
+                        setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""));
+                        setSlugEdited(true);
+                        setError("");
+                      }}
+                      placeholder="my-awesome-page"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Available at <span className="font-mono">/p/{profile.username}/{slug || "..."}</span>
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Description (optional)</label>
+                    <Input
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      placeholder="A short description of your page"
+                    />
+                  </div>
+                  {error && <p className="text-sm text-destructive">{error}</p>}
                 </div>
-                {error && <p className="text-sm text-destructive">{error}</p>}
-              </div>
+              )}
             </DialogContent>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleDeploy} disabled={loading}>
-                {loading ? "Deploying..." : "Deploy"}
-              </Button>
-            </DialogFooter>
+            {!profileLoading && profile?.username && (
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleDeploy} disabled={loading}>
+                  {loading ? "Deploying..." : "Deploy"}
+                </Button>
+              </DialogFooter>
+            )}
+            {!profileLoading && !profile?.username && (
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setOpen(false)}>
+                  Cancel
+                </Button>
+              </DialogFooter>
+            )}
           </>
         )}
       </Dialog>

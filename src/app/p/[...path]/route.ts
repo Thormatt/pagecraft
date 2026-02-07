@@ -94,14 +94,16 @@ export async function GET(
       page = data;
     }
   } else if (path.length === 1) {
-    // Legacy format: /p/slug (global unique slug lookup)
+    // Legacy format: /p/slug — kept for backward compatibility only.
+    // New pages require username, so they use /p/username/slug.
     const [slug] = path;
     const { data } = await supabase
       .from("pages")
       .select("id, html_content, title, is_published")
       .eq("slug", slug)
       .eq("is_published", true)
-      .single();
+      .limit(1)
+      .maybeSingle();
     page = data;
   }
 
