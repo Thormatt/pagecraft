@@ -16,6 +16,7 @@
     "@supabase/supabase-js": "^2.95.0",
     "ai": "^6.0.71",
     "mammoth": "^1.11.0",
+    "motion": "^12.33.0",
     "nanoid": "^5.1.6",
     "next": "16.1.6",
     "pdf-parse": "^2.4.5",

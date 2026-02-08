@@ -26,6 +26,7 @@ export interface HtmlPreviewHandle {
   applyStyle: (cssPath: string, property: string, value: string) => void;
   selectElement: (cssPath: string) => void;
   clearSelection: () => void;
+  replaceElement: (cssPath: string, html: string) => void;
 }
 
 function generateToken(): string {
@@ -66,6 +67,9 @@ export const HtmlPreview = forwardRef<HtmlPreviewHandle, HtmlPreviewProps>(
         },
         clearSelection() {
           postToIframe({ type: "CLEAR_SELECTION" });
+        },
+        replaceElement(cssPath: string, html: string) {
+          postToIframe({ type: "REPLACE_ELEMENT", cssPath, html });
         },
       }),
       [postToIframe]

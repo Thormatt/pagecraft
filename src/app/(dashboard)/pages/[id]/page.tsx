@@ -30,7 +30,7 @@ export default function EditPage() {
     async function loadPage() {
       const response = await fetch(`/api/pages/${id}`);
       if (!response.ok) {
-        router.push("/dashboard");
+        router.push("/pages");
         return;
       }
       const data = await response.json();

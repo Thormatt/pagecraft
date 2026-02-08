@@ -1,3 +1,4 @@
+import { createClient } from "@/lib/supabase/server";
 import { chromium } from "playwright";
 
 export const maxDuration = 60;
@@ -54,6 +55,18 @@ const PRINT_FIX_CSS = `
 `;
 
 export async function POST(request: Request) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
   try {
     const { html, title = "page", format = "a4" }: ExportRequest =
       await request.json();
@@ -72,16 +85,17 @@ export async function POST(request: Request) {
       landscape: { format: "A4" as const, landscape: true },
     }[format];
 
-    // Launch headless browser
+    // Launch headless browser (JS disabled to prevent SSRF)
     const browser = await chromium.launch({ headless: true });
     const context = await browser.newContext({
       viewport: { width: 1280, height: 900 },
+      javaScriptEnabled: false,
     });
     const page = await context.newPage();
 
-    // Set the HTML content and wait for network to settle
+    // Set the HTML content
     await page.setContent(html, {
-      waitUntil: "networkidle",
+      waitUntil: "domcontentloaded",
     });
 
     // Inject print-fix CSS

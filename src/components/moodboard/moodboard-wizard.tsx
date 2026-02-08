@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { StepDescription } from "./step-description";
 import { StepLayouts } from "./step-layouts";
 import { StepConcepts } from "./step-concepts";
@@ -19,11 +19,13 @@ import type { PromptMessage } from "@/types";
 interface MoodboardWizardProps {
   onHtmlUpdate: (html: string) => void;
   onMessagesUpdate: (messages: PromptMessage[]) => void;
+  onLoadingChange?: (isLoading: boolean) => void;
 }
 
 export function MoodboardWizard({
   onHtmlUpdate,
   onMessagesUpdate,
+  onLoadingChange,
 }: MoodboardWizardProps) {
   const [step, setStep] = useState<MoodboardStep>("description");
   const [description, setDescription] = useState("");
@@ -36,6 +38,10 @@ export function MoodboardWizard({
   const [imageMode] = useState<ImageMode>("stock");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    onLoadingChange?.(isLoading);
+  }, [isLoading, onLoadingChange]);
   const [layoutProgress, setLayoutProgress] = useState({ completed: 0, total: 5 });
   const [conceptProgress, setConceptProgress] = useState({ completed: 0, total: 5 });
 

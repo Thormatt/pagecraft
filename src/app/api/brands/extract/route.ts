@@ -29,18 +29,49 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const body: ExtractRequest = await request.json();
+  let body: ExtractRequest;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
   const { url, name, is_default = false } = body;
 
   if (!url) {
     return NextResponse.json({ error: "URL is required" }, { status: 400 });
   }
 
-  // Validate URL format
+  // Validate URL format and block private/internal URLs
+  let parsedUrl: URL;
   try {
-    new URL(url);
+    parsedUrl = new URL(url);
   } catch {
     return NextResponse.json({ error: "Invalid URL format" }, { status: 400 });
+  }
+
+  if (!["http:", "https:"].includes(parsedUrl.protocol)) {
+    return NextResponse.json({ error: "Only HTTP(S) URLs are allowed" }, { status: 400 });
+  }
+
+  const hostname = parsedUrl.hostname.toLowerCase();
+  const blockedPatterns = [
+    /^localhost$/,
+    /^127\./,
+    /^10\./,
+    /^172\.(1[6-9]|2\d|3[01])\./,
+    /^192\.168\./,
+    /^169\.254\./,
+    /^0\./,
+    /^\[::1\]$/,
+    /^\[fc/i,
+    /^\[fd/i,
+    /^\[fe80:/i,
+    /\.internal$/,
+    /\.local$/,
+  ];
+
+  if (blockedPatterns.some((p) => p.test(hostname))) {
+    return NextResponse.json({ error: "Internal URLs are not allowed" }, { status: 400 });
   }
 
   try {

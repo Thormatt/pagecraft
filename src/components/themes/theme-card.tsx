@@ -52,7 +52,7 @@ export function ThemeCard({ theme, onClick }: ThemeCardProps) {
         <h3 className="font-medium text-sm truncate">{theme.name}</h3>
         {theme.source_url && (
           <p className="text-xs text-muted-foreground truncate mt-0.5">
-            {new URL(theme.source_url).hostname}
+            {(() => { try { return new URL(theme.source_url).hostname; } catch { return theme.source_url; } })()}
           </p>
         )}
 

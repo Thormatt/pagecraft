@@ -2,16 +2,27 @@
 
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 interface ExportButtonProps {
   html: string;
   title?: string;
   disabled?: boolean;
+  variant?: "default" | "outline" | "ghost" | "destructive";
+  size?: "sm" | "md" | "lg";
+  className?: string;
 }
 
 type ExportFormat = "a4" | "letter" | "landscape";
 
-export function ExportButton({ html, title = "page", disabled }: ExportButtonProps) {
+export function ExportButton({
+  html,
+  title = "page",
+  disabled,
+  variant = "outline",
+  size = "sm",
+  className,
+}: ExportButtonProps) {
   const [isExporting, setIsExporting] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -75,11 +86,11 @@ export function ExportButton({ html, title = "page", disabled }: ExportButtonPro
   return (
     <div className="relative" ref={menuRef}>
       <Button
-        variant="outline"
-        size="sm"
+        variant={variant}
+        size={size}
         disabled={disabled || isExporting || !html}
         onClick={() => setShowMenu(!showMenu)}
-        className="gap-2"
+        className={cn("gap-2", className)}
       >
         {isExporting ? (
           <>

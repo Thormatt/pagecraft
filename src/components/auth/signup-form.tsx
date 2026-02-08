@@ -37,7 +37,7 @@ export function SignupForm() {
 
     // If session exists (autoconfirm enabled), redirect to dashboard
     if (data.session) {
-      router.push("/dashboard");
+      router.push("/pages");
       return;
     }
 

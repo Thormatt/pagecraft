@@ -14,99 +14,109 @@ const updateProfileSchema = z.object({
 });
 
 export async function GET() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const { data: profile, error } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", user.id)
-    .single();
-
-  if (error) {
-    // Profile might not exist yet, create it
-    if (error.code === "PGRST116") {
-      const { data: newProfile, error: insertError } = await supabase
-        .from("profiles")
-        .insert({ id: user.id })
-        .select()
-        .single();
-
-      if (insertError) {
-        return NextResponse.json({ error: "Failed to create profile" }, { status: 500 });
-      }
-      return NextResponse.json(newProfile);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    return NextResponse.json({ error: "Failed to fetch profile" }, { status: 500 });
-  }
 
-  return NextResponse.json(profile);
+    const { data: profile, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", user.id)
+      .single();
+
+    if (error) {
+      // Profile might not exist yet, create it
+      if (error.code === "PGRST116") {
+        const { data: newProfile, error: insertError } = await supabase
+          .from("profiles")
+          .insert({ id: user.id })
+          .select()
+          .single();
+
+        if (insertError) {
+          return NextResponse.json({ error: "Failed to create profile" }, { status: 500 });
+        }
+        return NextResponse.json(newProfile);
+      }
+      return NextResponse.json({ error: "Failed to fetch profile" }, { status: 500 });
+    }
+
+    return NextResponse.json(profile);
+  } catch (err) {
+    console.error("Profile GET error:", err);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 }
 
 export async function PATCH(request: Request) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  let body;
   try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-  }
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-  const parsed = updateProfileSchema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json(
-      { error: "Validation failed", details: parsed.error.flatten() },
-      { status: 400 }
-    );
-  }
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-  const { username, display_name } = parsed.data;
+    let body;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+    }
 
-  // Check username uniqueness if being updated
-  if (username) {
-    const { data: existing } = await supabase
+    const parsed = updateProfileSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Validation failed", details: parsed.error.flatten() },
+        { status: 400 }
+      );
+    }
+
+    const { username, display_name } = parsed.data;
+
+    // Check username uniqueness if being updated
+    if (username) {
+      const { data: existing } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("username", username)
+        .neq("id", user.id)
+        .single();
+
+      if (existing) {
+        return NextResponse.json({ error: "Username already taken" }, { status: 409 });
+      }
+    }
+
+    const updateData: Record<string, unknown> = {};
+    if (username !== undefined) updateData.username = username;
+    if (display_name !== undefined) updateData.display_name = display_name;
+
+    const { data: profile, error } = await supabase
       .from("profiles")
-      .select("id")
-      .eq("username", username)
-      .neq("id", user.id)
+      .update(updateData)
+      .eq("id", user.id)
+      .select()
       .single();
 
-    if (existing) {
-      return NextResponse.json({ error: "Username already taken" }, { status: 409 });
+    if (error) {
+      if (error.code === "23505") {
+        return NextResponse.json({ error: "Username already taken" }, { status: 409 });
+      }
+      return NextResponse.json({ error: "Failed to update profile" }, { status: 500 });
     }
+
+    return NextResponse.json(profile);
+  } catch (err) {
+    console.error("Profile PATCH error:", err);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
-
-  const updateData: Record<string, unknown> = {};
-  if (username !== undefined) updateData.username = username;
-  if (display_name !== undefined) updateData.display_name = display_name;
-
-  const { data: profile, error } = await supabase
-    .from("profiles")
-    .update(updateData)
-    .eq("id", user.id)
-    .select()
-    .single();
-
-  if (error) {
-    if (error.code === "23505") {
-      return NextResponse.json({ error: "Username already taken" }, { status: 409 });
-    }
-    return NextResponse.json({ error: "Failed to update profile" }, { status: 500 });
-  }
-
-  return NextResponse.json(profile);
 }

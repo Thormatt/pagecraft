@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import type { PromptMessage } from "@/types";
 
 interface SaveDraftButtonProps {
@@ -10,6 +11,9 @@ interface SaveDraftButtonProps {
   brandId?: string | null;
   disabled?: boolean;
   onDraftSaved?: (draftId: string) => void;
+  variant?: "default" | "outline" | "ghost" | "destructive";
+  size?: "sm" | "md" | "lg";
+  className?: string;
 }
 
 export function SaveDraftButton({
@@ -18,16 +22,20 @@ export function SaveDraftButton({
   brandId,
   disabled,
   onDraftSaved,
+  variant = "outline",
+  size = "sm",
+  className,
 }: SaveDraftButtonProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [draftId, setDraftId] = useState<string | null>(null);
-  const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [showSaved, setShowSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSave = async () => {
     if (!html) return;
 
     setIsSaving(true);
+    setError(null);
     try {
       const res = await fetch("/api/drafts", {
         method: "POST",
@@ -44,15 +52,19 @@ export function SaveDraftButton({
       if (res.ok) {
         const data = await res.json();
         setDraftId(data.draft.id);
-        setLastSaved(new Date());
         setShowSaved(true);
         onDraftSaved?.(data.draft.id);
 
         // Hide "Saved" indicator after 2 seconds
         setTimeout(() => setShowSaved(false), 2000);
+      } else {
+        setError("Failed to save");
+        setTimeout(() => setError(null), 3000);
       }
     } catch (err) {
       console.error("Failed to save draft:", err);
+      setError("Failed to save");
+      setTimeout(() => setError(null), 3000);
     } finally {
       setIsSaving(false);
     }
@@ -77,10 +89,11 @@ export function SaveDraftButton({
 
   return (
     <Button
-      variant="outline"
-      size="sm"
+      variant={variant}
+      size={size}
       onClick={handleSave}
       disabled={disabled || isSaving || !html}
+      className={cn(className)}
     >
       {isSaving ? (
         <>
@@ -95,6 +108,8 @@ export function SaveDraftButton({
           </svg>
           Saving...
         </>
+      ) : error ? (
+        <span className="text-destructive">{error}</span>
       ) : showSaved ? (
         <>
           <svg

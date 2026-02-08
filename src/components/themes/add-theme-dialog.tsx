@@ -17,14 +17,7 @@ interface AddThemeDialogProps {
   onThemeCreated: (theme: BrandProfile) => void;
 }
 
-type ExtractState = "idle" | "extracting" | "preview";
-
-interface ExtractedData {
-  name: string;
-  colors: string[];
-  fonts: string[];
-  screenshot: string | null;
-}
+type ExtractState = "idle" | "extracting";
 
 export function AddThemeDialog({
   open,
@@ -34,9 +27,7 @@ export function AddThemeDialog({
   const [url, setUrl] = useState("");
   const [name, setName] = useState("");
   const [state, setState] = useState<ExtractState>("idle");
-  const [extractedData, setExtractedData] = useState<ExtractedData | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
 
   const handleExtract = async () => {
     if (!url.trim()) return;
@@ -69,7 +60,6 @@ export function AddThemeDialog({
     setUrl("");
     setName("");
     setState("idle");
-    setExtractedData(null);
     setError(null);
     onClose();
   };

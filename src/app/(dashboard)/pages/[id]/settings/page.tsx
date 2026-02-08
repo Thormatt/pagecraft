@@ -63,7 +63,7 @@ export default function PageSettingsPage() {
       ]);
 
       if (!pageRes.ok) {
-        router.push("/dashboard");
+        router.push("/pages");
         return;
       }
 
@@ -125,7 +125,7 @@ export default function PageSettingsPage() {
   const handleDelete = async () => {
     setDeleting(true);
     await fetch(`/api/pages/${id}`, { method: "DELETE" });
-    router.push("/dashboard");
+    router.push("/pages");
   };
 
   const handleSetPassword = async () => {

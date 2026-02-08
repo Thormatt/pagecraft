@@ -275,6 +275,20 @@ function bridgeScript(token: string): string {
       selected = null;
       hideOverlay(selectOverlay);
     }
+
+    if (data.type === "REPLACE_ELEMENT") {
+      var target = data.cssPath ? document.querySelector(data.cssPath) : null;
+      if (target && data.html) {
+        var temp = document.createElement("template");
+        temp.innerHTML = data.html.trim();
+        var newEl = temp.content.firstElementChild;
+        if (newEl) {
+          target.replaceWith(newEl);
+          selected = null;
+          hideOverlay(selectOverlay);
+        }
+      }
+    }
   });
 
   send({ type: "BRIDGE_READY" });

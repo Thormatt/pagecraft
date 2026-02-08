@@ -18,7 +18,12 @@ export function ShareButton({ pageUrl, pageTitle }: ShareButtonProps) {
     ? `${window.location.origin}${pageUrl}`
     : pageUrl;
 
-  const embedCode = `<iframe src="${fullUrl}" width="100%" height="600" frameborder="0" title="${pageTitle}"></iframe>`;
+  const safeTitle = pageTitle
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+  const embedCode = `<iframe src="${fullUrl}" width="100%" height="600" frameborder="0" title="${safeTitle}"></iframe>`;
 
   // Close menu when clicking outside
   useEffect(() => {

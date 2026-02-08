@@ -22,9 +22,19 @@ interface DeployButtonProps {
   html: string;
   messages: PromptMessage[];
   disabled?: boolean;
+  variant?: "default" | "outline" | "ghost" | "destructive";
+  size?: "sm" | "md" | "lg";
+  className?: string;
 }
 
-export function DeployButton({ html, messages, disabled }: DeployButtonProps) {
+export function DeployButton({
+  html,
+  messages,
+  disabled,
+  variant = "default",
+  size = "sm",
+  className,
+}: DeployButtonProps) {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [slug, setSlug] = useState("");
@@ -52,13 +62,28 @@ export function DeployButton({ html, messages, disabled }: DeployButtonProps) {
     }
   }, []);
 
+  const extractTitle = (htmlContent: string): string => {
+    const h1Match = htmlContent.match(/<h1[^>]*>([^<]+)<\/h1>/i);
+    if (h1Match) return h1Match[1].trim().slice(0, 100);
+
+    const titleMatch = htmlContent.match(/<title[^>]*>([^<]+)<\/title>/i);
+    if (titleMatch) return titleMatch[1].trim().slice(0, 100);
+
+    const firstUserMessage = messages.find((m) => m.role === "user");
+    if (firstUserMessage) return firstUserMessage.content.slice(0, 100);
+
+    return "";
+  };
+
   const handleOpen = () => {
     setOpen(true);
     setError("");
     setDeployedPage(null);
     setSlugEdited(false);
     fetchProfile();
-    setSlug(generateSlug(title || "page"));
+    const extracted = extractTitle(html);
+    setTitle(extracted);
+    setSlug(generateSlug(extracted || "page"));
   };
 
   const handleClose = () => {
@@ -131,7 +156,13 @@ export function DeployButton({ html, messages, disabled }: DeployButtonProps) {
 
   return (
     <>
-      <Button size="sm" onClick={handleOpen} disabled={disabled || !html}>
+      <Button
+        variant={variant}
+        size={size}
+        className={className}
+        onClick={handleOpen}
+        disabled={disabled || !html}
+      >
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242" />
           <path d="M12 12v9" /><path d="m16 16-4-4-4 4" />

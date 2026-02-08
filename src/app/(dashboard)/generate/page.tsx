@@ -9,6 +9,7 @@ import { SaveTemplateButton } from "@/components/generate/save-template-button";
 import { SaveDraftButton } from "@/components/generate/save-draft-button";
 import { StarterTemplateGallery } from "@/components/generate/starter-template-gallery";
 import { ExportButton } from "@/components/generate/export-button";
+import { GenerationOverlay } from "@/components/generate/generation-overlay";
 import { Button } from "@/components/ui/button";
 import { MoodboardWizard } from "@/components/moodboard/moodboard-wizard";
 import { useState, useCallback, useRef, useEffect } from "react";
@@ -29,8 +30,11 @@ export default function GeneratePage() {
   const [initialTemplateHtml, setInitialTemplateHtml] = useState<string | null>(null);
   const [mode, setMode] = useState<GenerateMode>("chat");
   const [saveMenuOpen, setSaveMenuOpen] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   const previewRef = useRef<HtmlPreviewHandle>(null);
   const saveMenuRef = useRef<HTMLDivElement>(null);
+  const htmlRef = useRef(html);
+  useEffect(() => { htmlRef.current = html; }, [html]);
 
   // Pick up template from /themes page navigation
   useEffect(() => {
@@ -65,8 +69,19 @@ export default function GeneratePage() {
     setSelectedElement(null);
   }, []);
 
+  const handleTemplateSelect = useCallback((templateHtml: string) => {
+    setHtml(templateHtml);
+    setPreviewHtml(templateHtml);
+    setInitialTemplateHtml(templateHtml);
+    setSelectedElement(null);
+  }, []);
+
   const handleMessagesUpdate = useCallback((newMessages: PromptMessage[]) => {
     setMessages(newMessages);
+  }, []);
+
+  const handleLoadingChange = useCallback((loading: boolean) => {
+    setIsGenerating(loading);
   }, []);
 
   const handleStyleChange = useCallback(
@@ -107,35 +122,41 @@ export default function GeneratePage() {
 
   const handleAiEdit = useCallback(
     async (cssPath: string, instruction: string) => {
-      const elementHtml = getElementOuterHtml(html, cssPath);
+      const elementHtml = getElementOuterHtml(htmlRef.current, cssPath);
       if (!elementHtml) return;
 
-      const res = await fetch("/api/generate/edit-element", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ elementHtml, instruction }),
-      });
+      try {
+        const res = await fetch("/api/generate/edit-element", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ elementHtml, instruction }),
+        });
 
-      if (!res.ok) return;
+        if (!res.ok) return;
 
-      const { html: newElementHtml } = await res.json();
-      if (!newElementHtml) return;
+        const { html: newElementHtml } = await res.json();
+        if (!newElementHtml) return;
 
-      const updated = replaceElementOuterHtml(html, cssPath, newElementHtml);
-      setHtml(updated);
-      setPreviewHtml(updated);
-      setSelectedElement(null);
+        // Update persisted HTML using functional update to avoid stale closure
+        setHtml((prev) => replaceElementOuterHtml(prev, cssPath, newElementHtml));
+
+        // Patch the element in the live iframe via bridge (no reload)
+        previewRef.current?.replaceElement(cssPath, newElementHtml);
+        setSelectedElement(null);
+      } catch (err) {
+        console.error("AI edit failed:", err);
+      }
     },
-    [html]
+    []
   );
 
   const handleInsertElement = useCallback(
     (parentCssPath: string, childHtml: string) => {
-      const updated = insertChildElement(html, parentCssPath, childHtml);
+      const updated = insertChildElement(htmlRef.current, parentCssPath, childHtml);
       setHtml(updated);
       setPreviewHtml(updated);
     },
-    [html]
+    []
   );
 
   const handleElementSelected = useCallback((element: ElementInfo) => {
@@ -157,11 +178,8 @@ export default function GeneratePage() {
   const toggleEditor = useCallback(() => {
     setEditorOpen((prev) => {
       if (prev) {
-        // Exiting editor mode - sync previewHtml with html to persist text changes
-        setHtml((currentHtml) => {
-          setPreviewHtml(currentHtml);
-          return currentHtml;
-        });
+        // Exiting editor mode - sync previewHtml with latest html
+        setPreviewHtml(htmlRef.current);
         setSelectedElement(null);
         previewRef.current?.clearSelection();
       }
@@ -224,7 +242,7 @@ export default function GeneratePage() {
           )}
           <ExportButton
             html={html}
-            disabled={!html}
+            disabled={!html || isGenerating}
             variant="ghost"
             size="md"
             className="rounded-xl text-foreground/80 hover:text-foreground"
@@ -233,7 +251,7 @@ export default function GeneratePage() {
             <Button
               variant="outline"
               size="md"
-              disabled={!html}
+              disabled={!html || isGenerating}
               onClick={() => setSaveMenuOpen((prev) => !prev)}
               className="rounded-xl"
             >
@@ -292,7 +310,7 @@ export default function GeneratePage() {
           <DeployButton
             html={html}
             messages={messages}
-            disabled={!html}
+            disabled={!html || isGenerating}
             size="md"
             variant="default"
             className="rounded-xl px-5"
@@ -345,12 +363,14 @@ export default function GeneratePage() {
                 <ChatInterface
                   onHtmlUpdate={handleHtmlUpdate}
                   onMessagesUpdate={handleMessagesUpdate}
+                  onLoadingChange={handleLoadingChange}
                   initialTemplateHtml={initialTemplateHtml}
                 />
               ) : (
                 <MoodboardWizard
                   onHtmlUpdate={handleHtmlUpdate}
                   onMessagesUpdate={handleMessagesUpdate}
+                  onLoadingChange={handleLoadingChange}
                 />
               )}
             </div>
@@ -395,18 +415,21 @@ export default function GeneratePage() {
             />
           </div>
         )}
-        <div className="hidden flex-1 md:block">
+        <div className="hidden flex-1 md:flex md:flex-col relative overflow-hidden">
           {html ? (
             view === "preview" ? (
-              <HtmlPreview
-                ref={previewRef}
-                html={html}
-                previewHtml={previewHtml}
-                editorMode={editorOpen}
-                onElementSelected={handleElementSelected}
-                onTextChanged={handleTextChange}
-                className="h-full w-full border-0"
-              />
+              <>
+                <HtmlPreview
+                  ref={previewRef}
+                  html={html}
+                  previewHtml={previewHtml}
+                  editorMode={editorOpen}
+                  onElementSelected={handleElementSelected}
+                  onTextChanged={handleTextChange}
+                  className="h-full w-full border-0"
+                />
+                <GenerationOverlay isGenerating={isGenerating} />
+              </>
             ) : (
               <div className="h-full overflow-auto bg-muted p-4">
                 <pre className="whitespace-pre-wrap font-mono text-xs leading-relaxed">
@@ -415,7 +438,7 @@ export default function GeneratePage() {
               </div>
             )
           ) : mode === "chat" ? (
-            <StarterTemplateGallery onSelect={handleHtmlUpdate} />
+            <StarterTemplateGallery onSelect={handleTemplateSelect} />
           ) : (
             <div className="flex h-full flex-col items-center justify-center text-muted-foreground">
               <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="mb-4 opacity-50">

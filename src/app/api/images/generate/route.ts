@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
 
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 
@@ -66,6 +67,18 @@ function extractImageFromResponse(data: Record<string, unknown>): string | null 
 }
 
 export async function POST(request: Request): Promise<Response> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json(
+      { success: false, error: "Unauthorized" } as ImageGenerationResponse,
+      { status: 401 }
+    );
+  }
+
   try {
     const body = (await request.json()) as ImageGenerationRequest;
     const { prompt, style, size = "medium" } = body;

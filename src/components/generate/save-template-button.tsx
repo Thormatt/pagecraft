@@ -10,13 +10,27 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
 
 interface SaveTemplateButtonProps {
   html: string;
   disabled?: boolean;
+  variant?: "default" | "outline" | "ghost" | "destructive";
+  size?: "sm" | "md" | "lg";
+  className?: string;
+  label?: string;
+  onTriggerClick?: () => void;
 }
 
-export function SaveTemplateButton({ html, disabled }: SaveTemplateButtonProps) {
+export function SaveTemplateButton({
+  html,
+  disabled,
+  variant = "outline",
+  size = "sm",
+  className,
+  label = "Save Template",
+  onTriggerClick,
+}: SaveTemplateButtonProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -63,10 +77,14 @@ export function SaveTemplateButton({ html, disabled }: SaveTemplateButtonProps) 
   return (
     <>
       <Button
-        variant="outline"
-        size="sm"
+        variant={variant}
+        size={size}
         disabled={disabled}
-        onClick={() => setIsDialogOpen(true)}
+        onClick={() => {
+          onTriggerClick?.();
+          setIsDialogOpen(true);
+        }}
+        className={cn(className)}
       >
         <svg
           width="16"
@@ -83,7 +101,7 @@ export function SaveTemplateButton({ html, disabled }: SaveTemplateButtonProps) 
           <path d="M3 9h18" />
           <path d="M9 21V9" />
         </svg>
-        Save Template
+        {label}
       </Button>
       <Dialog open={isDialogOpen} onClose={() => setIsDialogOpen(false)}>
         <DialogHeader>

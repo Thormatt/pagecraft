@@ -247,6 +247,8 @@ export function StyleEditorPanel({
         {/* Selected element controls */}
         {selectedElement && (
           <>
+            {onAiEdit && <AiEditInput cssPath={selectedElement.cssPath} onSubmit={onAiEdit} />}
+
             <div className="border-b border-border px-3 py-2">
               <div className="flex items-center gap-2">
                 <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground">
@@ -258,8 +260,6 @@ export function StyleEditorPanel({
                 </span>
               </div>
             </div>
-
-            {onAiEdit && <AiEditInput cssPath={selectedElement.cssPath} onSubmit={onAiEdit} />}
 
             {onInsertElement && CONTAINER_TAGS.has(selectedElement.tagName) && (
               <div className="border-b border-border px-3 py-2">

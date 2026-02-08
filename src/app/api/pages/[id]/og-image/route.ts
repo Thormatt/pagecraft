@@ -33,17 +33,18 @@ export async function GET(
   }
 
   try {
-    // Launch headless browser
+    // Launch headless browser (JS disabled to prevent SSRF)
     const browser = await chromium.launch({ headless: true });
     const context = await browser.newContext({
       viewport: { width: 1200, height: 630 }, // OG image dimensions
       deviceScaleFactor: 2, // Higher quality
+      javaScriptEnabled: false,
     });
     const browserPage = await context.newPage();
 
-    // Set the HTML content
+    // Set the HTML content (domcontentloaded since JS is disabled)
     await browserPage.setContent(page.html_content, {
-      waitUntil: "networkidle",
+      waitUntil: "domcontentloaded",
     });
 
     // Wait a bit for any animations/fonts to load

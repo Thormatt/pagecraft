@@ -15,6 +15,7 @@ export default function SettingsPage() {
   const [isCheckingUsername, setIsCheckingUsername] = useState(false);
   const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const fetchProfile = useCallback(async () => {
     setIsLoading(true);
@@ -39,8 +40,17 @@ export default function SettingsPage() {
 
   // Debounced username availability check
   useEffect(() => {
-    if (!username || username === profile?.username) {
+    if (username === profile?.username) {
       setUsernameError(null);
+      setUsernameAvailable(null);
+      return;
+    }
+    if (!username) {
+      if (profile?.username) {
+        setUsernameError("Username cannot be removed once set");
+      } else {
+        setUsernameError(null);
+      }
       setUsernameAvailable(null);
       return;
     }
@@ -56,7 +66,7 @@ export default function SettingsPage() {
       setUsernameAvailable(null);
       return;
     }
-    if (!/^[a-z0-9][a-z0-9_-]*[a-z0-9]$/.test(username) && username.length > 2) {
+    if (!/^[a-z0-9][a-z0-9_-]*[a-z0-9]$/.test(username)) {
       setUsernameError("Lowercase letters, numbers, hyphens, and underscores only");
       setUsernameAvailable(null);
       return;
@@ -89,11 +99,13 @@ export default function SettingsPage() {
     const value = e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, "");
     setUsername(value);
     setSaveSuccess(false);
+    setSaveError(null);
   };
 
   const handleDisplayNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setDisplayName(e.target.value);
     setSaveSuccess(false);
+    setSaveError(null);
   };
 
   const handleSave = async () => {
@@ -101,6 +113,7 @@ export default function SettingsPage() {
 
     setIsSaving(true);
     setSaveSuccess(false);
+    setSaveError(null);
     try {
       const res = await fetch("/api/profile", {
         method: "PATCH",
@@ -116,13 +129,16 @@ export default function SettingsPage() {
         setProfile(data);
         setSaveSuccess(true);
       } else {
-        const error = await res.json();
+        const error = await res.json().catch(() => ({ error: "Save failed" }));
         if (error.error === "Username already taken") {
           setUsernameError("Username is already taken");
+        } else {
+          setSaveError(error.error || "Failed to save changes");
         }
       }
     } catch (err) {
       console.error("Failed to save profile:", err);
+      setSaveError("Network error. Please try again.");
     } finally {
       setIsSaving(false);
     }
@@ -222,6 +238,9 @@ export default function SettingsPage() {
                 </svg>
                 Saved
               </span>
+            )}
+            {saveError && (
+              <span className="text-sm text-destructive">{saveError}</span>
             )}
           </div>
         </div>
