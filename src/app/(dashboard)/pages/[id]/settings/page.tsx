@@ -5,15 +5,37 @@ import { Input } from "@/components/ui/input";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { isValidSlug } from "@/lib/utils";
+import { EXPIRATION_PRESETS } from "@/lib/constants";
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import type { Page, Profile } from "@/types/database";
 
+type PageResponse = Omit<Page, "page_password"> & { has_password: boolean };
+
+function formatRelativeTime(date: Date): string {
+  const now = Date.now();
+  const diffMs = date.getTime() - now;
+  const absDiff = Math.abs(diffMs);
+  const isFuture = diffMs > 0;
+
+  const minutes = Math.round(absDiff / 60000);
+  const hours = Math.round(absDiff / 3600000);
+  const days = Math.round(absDiff / 86400000);
+
+  let label: string;
+  if (minutes < 1) label = "less than a minute";
+  else if (minutes < 60) label = `${minutes} minute${minutes !== 1 ? "s" : ""}`;
+  else if (hours < 24) label = `${hours} hour${hours !== 1 ? "s" : ""}`;
+  else label = `${days} day${days !== 1 ? "s" : ""}`;
+
+  return isFuture ? `in ${label}` : `${label} ago`;
+}
+
 export default function PageSettingsPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const [page, setPage] = useState<Page | null>(null);
+  const [page, setPage] = useState<PageResponse | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [title, setTitle] = useState("");
   const [slug, setSlug] = useState("");
@@ -24,6 +46,14 @@ export default function PageSettingsPage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [hasPassword, setHasPassword] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [passwordSaving, setPasswordSaving] = useState(false);
+  const [passwordError, setPasswordError] = useState("");
+  const [passwordSuccess, setPasswordSuccess] = useState("");
+  const [expiresAt, setExpiresAt] = useState<string | null>(null);
+  const [expirationSaving, setExpirationSaving] = useState(false);
+  const [expirationMessage, setExpirationMessage] = useState<{ type: "error" | "success"; text: string } | null>(null);
 
   useEffect(() => {
     async function loadData() {
@@ -37,12 +67,14 @@ export default function PageSettingsPage() {
         return;
       }
 
-      const pageData: Page = await pageRes.json();
+      const pageData: PageResponse = await pageRes.json();
       setPage(pageData);
       setTitle(pageData.title);
       setSlug(pageData.slug);
       setDescription(pageData.description ?? "");
       setIsPublished(pageData.is_published);
+      setHasPassword(pageData.has_password);
+      setExpiresAt(pageData.expires_at);
 
       if (profileRes.ok) {
         const profileData: Profile = await profileRes.json();
@@ -94,6 +126,103 @@ export default function PageSettingsPage() {
     setDeleting(true);
     await fetch(`/api/pages/${id}`, { method: "DELETE" });
     router.push("/dashboard");
+  };
+
+  const handleSetPassword = async () => {
+    if (!newPassword.trim()) {
+      setPasswordError("Password cannot be empty");
+      return;
+    }
+    setPasswordSaving(true);
+    setPasswordError("");
+    setPasswordSuccess("");
+
+    const res = await fetch(`/api/pages/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ page_password: newPassword }),
+    });
+
+    if (!res.ok) {
+      const data = await res.json();
+      setPasswordError(data.error || "Failed to set password");
+    } else {
+      const updated: PageResponse = await res.json();
+      setPage(updated);
+      setHasPassword(true);
+      setNewPassword("");
+      setPasswordSuccess(hasPassword ? "Password updated" : "Password set");
+    }
+    setPasswordSaving(false);
+  };
+
+  const handleRemovePassword = async () => {
+    setPasswordSaving(true);
+    setPasswordError("");
+    setPasswordSuccess("");
+
+    const res = await fetch(`/api/pages/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ page_password: null }),
+    });
+
+    if (!res.ok) {
+      const data = await res.json();
+      setPasswordError(data.error || "Failed to remove password");
+    } else {
+      const updated: PageResponse = await res.json();
+      setPage(updated);
+      setHasPassword(false);
+      setNewPassword("");
+      setPasswordSuccess("Password removed — page is now public");
+    }
+    setPasswordSaving(false);
+  };
+
+  const handleSetExpiration = async (seconds: number) => {
+    setExpirationSaving(true);
+    setExpirationMessage(null);
+
+    const newExpiresAt = new Date(Date.now() + seconds * 1000).toISOString();
+    const res = await fetch(`/api/pages/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ expires_at: newExpiresAt }),
+    });
+
+    if (!res.ok) {
+      const data = await res.json();
+      setExpirationMessage({ type: "error", text: data.error || "Failed to set expiration" });
+    } else {
+      const updated: PageResponse = await res.json();
+      setPage(updated);
+      setExpiresAt(updated.expires_at);
+      setExpirationMessage({ type: "success", text: "Expiration set" });
+    }
+    setExpirationSaving(false);
+  };
+
+  const handleRemoveExpiration = async () => {
+    setExpirationSaving(true);
+    setExpirationMessage(null);
+
+    const res = await fetch(`/api/pages/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ expires_at: null }),
+    });
+
+    if (!res.ok) {
+      const data = await res.json();
+      setExpirationMessage({ type: "error", text: data.error || "Failed to remove expiration" });
+    } else {
+      const updated: PageResponse = await res.json();
+      setPage(updated);
+      setExpiresAt(null);
+      setExpirationMessage({ type: "success", text: "Expiration removed — page will not expire" });
+    }
+    setExpirationSaving(false);
   };
 
   if (loading) {
@@ -173,6 +302,111 @@ export default function PageSettingsPage() {
           <Button onClick={handleSave} disabled={saving}>
             {saving ? "Saving..." : "Save Changes"}
           </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Password Protection</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {hasPassword && (
+            <p className="text-sm text-muted-foreground">
+              This page is currently <span className="font-medium text-foreground">password protected</span>.
+            </p>
+          )}
+          <div className="space-y-2">
+            <label className="text-sm font-medium">
+              {hasPassword ? "Change password" : "Set a password"}
+            </label>
+            <div className="flex gap-2">
+              <Input
+                type="password"
+                placeholder="Enter password"
+                value={newPassword}
+                onChange={(e) => {
+                  setNewPassword(e.target.value);
+                  setPasswordError("");
+                  setPasswordSuccess("");
+                }}
+                maxLength={128}
+              />
+              <Button onClick={handleSetPassword} disabled={passwordSaving}>
+                {passwordSaving ? "Saving..." : hasPassword ? "Update" : "Set"}
+              </Button>
+            </div>
+          </div>
+          {hasPassword && (
+            <Button
+              variant="outline"
+              onClick={handleRemovePassword}
+              disabled={passwordSaving}
+            >
+              Remove Password
+            </Button>
+          )}
+          {passwordError && (
+            <p className="text-sm text-destructive">{passwordError}</p>
+          )}
+          {passwordSuccess && (
+            <p className="text-sm text-green-600">{passwordSuccess}</p>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Link Expiration</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {expiresAt && (
+            <p className="text-sm">
+              {new Date(expiresAt) > new Date() ? (
+                <span className="text-muted-foreground">
+                  Expires{" "}
+                  <span className="font-medium text-foreground">
+                    {formatRelativeTime(new Date(expiresAt))}
+                  </span>
+                </span>
+              ) : (
+                <span className="text-amber-600 font-medium">
+                  Expired {formatRelativeTime(new Date(expiresAt))}
+                </span>
+              )}
+            </p>
+          )}
+          <div className="space-y-2">
+            <label className="text-sm font-medium">
+              {expiresAt ? "Change expiration" : "Set expiration"}
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {EXPIRATION_PRESETS.map((preset) => (
+                <Button
+                  key={preset.seconds}
+                  variant="outline"
+                  size="sm"
+                  disabled={expirationSaving}
+                  onClick={() => handleSetExpiration(preset.seconds)}
+                >
+                  {preset.label}
+                </Button>
+              ))}
+            </div>
+          </div>
+          {expiresAt && (
+            <Button
+              variant="outline"
+              onClick={handleRemoveExpiration}
+              disabled={expirationSaving}
+            >
+              Remove Expiration
+            </Button>
+          )}
+          {expirationMessage && (
+            <p className={`text-sm ${expirationMessage.type === "error" ? "text-destructive" : "text-green-600"}`}>
+              {expirationMessage.text}
+            </p>
+          )}
         </CardContent>
       </Card>
 

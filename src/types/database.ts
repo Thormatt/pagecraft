@@ -16,6 +16,8 @@ export interface Page {
   prompt_history: PromptMessage[];
   view_count: number;
   is_published: boolean;
+  expires_at: string | null;
+  page_password: string | null;
   brand_id: string | null;
   created_at: string;
   updated_at: string;
@@ -74,7 +76,7 @@ export interface Template {
 
 export type ProfileUpdate = Partial<Pick<Profile, "username" | "display_name">>;
 export type PageInsert = Omit<Page, "id" | "created_at" | "updated_at" | "view_count">;
-export type PageUpdate = Partial<Pick<Page, "title" | "slug" | "description" | "html_content" | "prompt_history" | "is_published" | "brand_id">>;
+export type PageUpdate = Partial<Pick<Page, "title" | "slug" | "description" | "html_content" | "prompt_history" | "is_published" | "expires_at" | "brand_id" | "page_password">>;
 export type BrandProfileInsert = Omit<BrandProfile, "id" | "created_at" | "updated_at">;
 export type DocumentInsert = Omit<Document, "id" | "created_at">;
 export type TemplateInsert = Omit<Template, "id" | "created_at" | "updated_at">;

@@ -10,6 +10,23 @@ export const MAX_DISPLAY_NAME_LENGTH = 100;
 export const SITE_NAME = "PageCraft";
 export const SITE_DESCRIPTION = "Generate beautiful HTML pages with AI and deploy them instantly.";
 
+export const MAX_PAGE_PASSWORD_LENGTH = 128;
+export const PAGE_ACCESS_COOKIE_MAX_AGE = 86400; // 24 hours
+
+export const EXPIRATION_PRESETS = [
+  { label: "1 hour", seconds: 3600 },
+  { label: "1 day", seconds: 86400 },
+  { label: "7 days", seconds: 604800 },
+  { label: "30 days", seconds: 2592000 },
+] as const;
+
+export const PASSWORD_FORM_CSP = [
+  "default-src 'none'",
+  "style-src 'unsafe-inline'",
+  "form-action 'self'",
+  "base-uri 'none'",
+].join("; ");
+
 export const PUBLIC_PAGE_CSP = [
   "sandbox allow-scripts",
   "default-src 'none'",

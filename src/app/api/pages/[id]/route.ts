@@ -1,7 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { MAX_HTML_SIZE, MAX_TITLE_LENGTH, MAX_DESCRIPTION_LENGTH, MAX_SLUG_LENGTH, MIN_SLUG_LENGTH } from "@/lib/constants";
+import { MAX_HTML_SIZE, MAX_TITLE_LENGTH, MAX_DESCRIPTION_LENGTH, MAX_SLUG_LENGTH, MIN_SLUG_LENGTH, MAX_PAGE_PASSWORD_LENGTH } from "@/lib/constants";
+import { hashPagePassword } from "@/lib/page-access";
 
 const updatePageSchema = z.object({
   title: z.string().min(1).max(MAX_TITLE_LENGTH).optional(),
@@ -20,6 +21,8 @@ const updatePageSchema = z.object({
     })
   ).optional(),
   is_published: z.boolean().optional(),
+  page_password: z.string().min(1).max(MAX_PAGE_PASSWORD_LENGTH).nullable().optional(),
+  expires_at: z.string().datetime().nullable().optional(),
 });
 
 export async function GET(
@@ -47,7 +50,9 @@ export async function GET(
     return NextResponse.json({ error: "Page not found" }, { status: 404 });
   }
 
-  return NextResponse.json(page);
+  // Strip password hash, expose only boolean flag
+  const { page_password, ...rest } = page;
+  return NextResponse.json({ ...rest, has_password: page_password !== null });
 }
 
 export async function PATCH(
@@ -79,6 +84,15 @@ export async function PATCH(
     );
   }
 
+  // Hash password if provided, null removes it
+  const updateData: Record<string, unknown> = { ...parsed.data };
+  if (parsed.data.page_password !== undefined) {
+    updateData.page_password =
+      typeof parsed.data.page_password === "string"
+        ? await hashPagePassword(id, parsed.data.page_password)
+        : null;
+  }
+
   // If updating slug, check uniqueness per user
   if (parsed.data.slug) {
     const { data: existing } = await supabase
@@ -96,7 +110,7 @@ export async function PATCH(
 
   const { data: page, error } = await supabase
     .from("pages")
-    .update(parsed.data)
+    .update(updateData)
     .eq("id", id)
     .eq("user_id", user.id)
     .select()
@@ -106,7 +120,9 @@ export async function PATCH(
     return NextResponse.json({ error: "Failed to update page" }, { status: 500 });
   }
 
-  return NextResponse.json(page);
+  // Strip password hash from response
+  const { page_password: _pw, ...pageWithoutHash } = page as Record<string, unknown>;
+  return NextResponse.json({ ...pageWithoutHash, has_password: _pw !== null });
 }
 
 export async function DELETE(
