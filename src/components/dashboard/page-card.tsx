@@ -17,9 +17,10 @@ export function PageCard({ page, username }: PageCardProps) {
 
   const pageUrl = username
     ? `/p/${username}/${page.slug}`
-    : `/p/${page.slug}`;
+    : null;
 
   const handleCopyUrl = async () => {
+    if (!pageUrl) return;
     await navigator.clipboard.writeText(`${window.location.origin}${pageUrl}`);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -62,7 +63,18 @@ export function PageCard({ page, username }: PageCardProps) {
           <span>{formatNumber(page.view_count)} views</span>
         </div>
         <div className="mt-auto flex items-center gap-2 pt-4">
-          <Button variant="outline" size="sm" onClick={handleCopyUrl}>
+          {pageUrl && (
+            <a href={pageUrl} target="_blank" rel="noopener noreferrer">
+              <Button variant="outline" size="sm">View</Button>
+            </a>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleCopyUrl}
+            disabled={!pageUrl}
+            title={!pageUrl ? "Set a username in settings to get a shareable URL" : undefined}
+          >
             {copied ? "Copied!" : "Copy URL"}
           </Button>
           <Link href={`/pages/${page.id}`}>

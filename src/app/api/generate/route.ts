@@ -1,10 +1,10 @@
 import { openrouter, MODEL_ID } from "@/lib/ai/client";
 import { buildSystemPrompt, type IconStyle, type ImageMode } from "@/lib/ai/prompt";
 import { formatDocumentsForContext } from "@/lib/content/processor";
+import { PAGE_FORMATS, type PageFormat } from "@/lib/constants";
 import { createClient } from "@/lib/supabase/server";
 import { streamText } from "ai";
-import type { BrandProfile, Template } from "@/types/database";
-import type { LayoutMap } from "@/types/style-editor";
+import type { BrandProfile } from "@/types/database";
 
 export const maxDuration = 60;
 
@@ -29,11 +29,58 @@ interface GenerateRequest {
   brand_id?: string;
   template_id?: string;
   document_ids?: string[];
-  layout_id?: string;
-  layout_type?: "brand" | "template";
   starter_template_html?: string;
   icon_style?: IconStyle;
   image_mode?: ImageMode;
+  page_format?: PageFormat;
+}
+
+function detectSlideshow(html: string): boolean {
+  return (
+    html.includes("slide") ||
+    html.includes("carousel") ||
+    (html.includes("prev") && html.includes("next")) ||
+    /\d+\s*\/\s*\d+/.test(html) ||
+    html.includes("currentSlide")
+  );
+}
+
+function buildTemplateContext(html: string): string {
+  if (detectSlideshow(html)) {
+    return `## CRITICAL: Slideshow Template (MUST PRESERVE FORMAT)
+
+This is a SLIDESHOW/PRESENTATION template. You MUST preserve the slideshow format exactly:
+1. Keep ALL slides as separate sections that display one at a time (using the .slide class pattern)
+2. Keep the navigation arrows (prev/next buttons)
+3. Keep the slide counter/indicator (e.g., "1 / 6")
+4. Keep the JavaScript for slide navigation
+5. Keep the 16:9 or presentation aspect ratio
+6. Keep the slide transition effects
+
+DO NOT convert this into a scrolling landing page. The output MUST be a slideshow presentation.
+Replace the placeholder content in each slide with the user's requested content, but maintain the exact same number of slides and navigation structure.
+
+NOTE: If brand guidelines are provided in the system prompt, apply the brand's colors and fonts to the slides INSTEAD of the template's default colors. The template defines STRUCTURE; the brand defines VISUAL IDENTITY.
+
+\`\`\`html
+${html}
+\`\`\``;
+  }
+
+  return `## Template Reference (Layout Structure)
+
+Use this HTML template as your structural foundation:
+1. Keep the same section arrangement, layout patterns, and visual hierarchy
+2. Preserve CSS class naming and structural patterns
+3. Keep spacing, borders, shadows, and layout effects
+4. Replace placeholder text with the user's requested content
+5. Do NOT redesign the layout structure
+
+NOTE: If brand guidelines are provided in the system prompt, apply the brand's colors and fonts INSTEAD of the template's default colors. The template defines STRUCTURE; the brand defines VISUAL IDENTITY.
+
+\`\`\`html
+${html}
+\`\`\``;
 }
 
 function convertToModelMessages(
@@ -82,10 +129,10 @@ export async function POST(request: Request) {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  const { messages, brand_id, template_id, document_ids, layout_id, layout_type, starter_template_html, icon_style, image_mode }: GenerateRequest =
+  const { messages, brand_id, template_id, document_ids, starter_template_html, icon_style, image_mode, page_format }: GenerateRequest =
     await request.json();
 
-  console.log("[generate] Request received:", { brand_id, template_id, document_ids, layout_id, layout_type, hasStarterTemplate: !!starter_template_html, image_mode, messageCount: messages.length });
+  console.log("[generate] Request received:", { brand_id, template_id, document_ids, hasStarterTemplate: !!starter_template_html, image_mode, messageCount: messages.length });
 
   // Fetch brand profile if provided
   let brand: BrandProfile | null = null;
@@ -106,178 +153,25 @@ export async function POST(request: Request) {
     });
   }
 
-  // Fetch template if provided
-  let template: Template | null = null;
+  // Fetch saved template if provided (backward compat)
   let templateContext = "";
   if (template_id) {
-    const { data } = await supabase
+    const { data: template } = await supabase
       .from("templates")
       .select("*")
       .eq("id", template_id)
       .eq("user_id", user.id)
       .single();
-    template = data;
     if (template) {
       console.log("[generate] Template loaded:", { id: template.id, name: template.name });
-
-      // Detect if this is a slideshow/presentation template
-      const html = template.html_content;
-      const isSlideshow = html.includes('slide') ||
-                          html.includes('carousel') ||
-                          (html.includes('prev') && html.includes('next')) ||
-                          /\d+\s*\/\s*\d+/.test(html) ||
-                          html.includes('currentSlide');
-
-      if (isSlideshow) {
-        templateContext = `## CRITICAL: Slideshow Template (MUST PRESERVE FORMAT)
-
-This is a SLIDESHOW/PRESENTATION template. You MUST preserve the slideshow format exactly:
-1. Keep ALL slides as separate sections that display one at a time
-2. Keep the navigation arrows (prev/next buttons)
-3. Keep the slide counter/indicator
-4. Keep the JavaScript for slide navigation
-5. Keep the presentation aspect ratio and transitions
-
-DO NOT convert this into a scrolling landing page. The output MUST be a slideshow presentation.
-
-\`\`\`html
-${html}
-\`\`\``;
-      } else {
-        templateContext = `## Template Reference (MUST FOLLOW EXACTLY)
-
-Use this HTML template as your structural and stylistic reference. You MUST:
-1. Match its layout, component structure, design patterns, and CSS styling exactly
-2. Keep the same section arrangement and visual hierarchy
-3. Preserve the exact color palette, typography, and spacing
-4. Replace only the placeholder text content with the user's requested content
-
-\`\`\`html
-${html}
-\`\`\``;
-      }
-    }
-  }
-
-  // Fetch layout data if provided
-  let layoutData: { layoutMap?: LayoutMap; layoutHtml?: string } | null = null;
-  if (layout_id && layout_type) {
-    if (layout_type === "brand") {
-      const { data: layoutBrand } = await supabase
-        .from("brand_profiles")
-        .select("styles")
-        .eq("id", layout_id)
-        .eq("user_id", user.id)
-        .single();
-      if (layoutBrand?.styles) {
-        const s = layoutBrand.styles as Record<string, unknown>;
-        layoutData = {
-          layoutMap: s.layoutMap as LayoutMap | undefined,
-          layoutHtml: s.layoutHtml as string | undefined,
-        };
-        console.log("[generate] Layout loaded from brand:", layout_id);
-      }
-    } else if (layout_type === "template") {
-      // When a template is selected as layout source, use its full HTML as the layout reference
-      const { data: layoutTemplate } = await supabase
-        .from("templates")
-        .select("html_content")
-        .eq("id", layout_id)
-        .eq("user_id", user.id)
-        .single();
-      if (layoutTemplate) {
-        layoutData = { layoutHtml: layoutTemplate.html_content };
-        // Also set template context for backward compatibility
-        if (!template) {
-          const html = layoutTemplate.html_content;
-          const isSlideshow = html.includes('slide') ||
-                              html.includes('carousel') ||
-                              (html.includes('prev') && html.includes('next')) ||
-                              /\d+\s*\/\s*\d+/.test(html) ||
-                              html.includes('currentSlide');
-
-          if (isSlideshow) {
-            templateContext = `## CRITICAL: Slideshow Template (MUST PRESERVE FORMAT)
-
-This is a SLIDESHOW/PRESENTATION template. You MUST preserve the slideshow format exactly:
-1. Keep ALL slides as separate sections that display one at a time
-2. Keep the navigation arrows (prev/next buttons)
-3. Keep the slide counter/indicator
-4. Keep the JavaScript for slide navigation
-5. Keep the presentation aspect ratio and transitions
-
-DO NOT convert this into a scrolling landing page. The output MUST be a slideshow presentation.
-
-\`\`\`html
-${html}
-\`\`\``;
-          } else {
-            templateContext = `## Template Reference (MUST FOLLOW EXACTLY)
-
-Use this HTML template as your structural and stylistic reference. You MUST:
-1. Match its layout, component structure, design patterns, and CSS styling exactly
-2. Keep the same section arrangement and visual hierarchy
-3. Preserve the exact color palette, typography, and spacing
-4. Replace only the placeholder text content with the user's requested content
-
-\`\`\`html
-${html}
-\`\`\``;
-          }
-        }
-        console.log("[generate] Layout loaded from template:", layout_id);
-      }
+      templateContext = buildTemplateContext(template.html_content);
     }
   }
 
   // Use starter template HTML as reference if provided (and no DB template is set)
   if (starter_template_html && !templateContext) {
-    // Detect if this is a slideshow/presentation template
-    const isSlideshow = starter_template_html.includes('slide') ||
-                        starter_template_html.includes('carousel') ||
-                        (starter_template_html.includes('prev') && starter_template_html.includes('next')) ||
-                        /\d+\s*\/\s*\d+/.test(starter_template_html) || // "1 / 6" pattern
-                        starter_template_html.includes('currentSlide');
-
-    if (isSlideshow) {
-      templateContext = `## CRITICAL: Slideshow Template (MUST PRESERVE FORMAT)
-
-This is a SLIDESHOW/PRESENTATION template. You MUST preserve the slideshow format exactly:
-1. Keep ALL slides as separate sections that display one at a time (using the .slide class pattern)
-2. Keep the navigation arrows (prev/next buttons)
-3. Keep the slide counter/indicator (e.g., "1 / 6")
-4. Keep the JavaScript for slide navigation
-5. Keep the 16:9 or presentation aspect ratio
-6. Keep the slide transition effects
-7. PRESERVE THE EXACT CSS COLOR PALETTE AND TYPOGRAPHY from the template
-
-DO NOT convert this into a scrolling landing page. The output MUST be a slideshow presentation.
-DO NOT change the visual design - use the SAME colors, fonts, and styling as the template.
-
-Replace the placeholder content in each slide with the user's requested content, but maintain the exact same number of slides, navigation structure, AND visual styling.
-
-\`\`\`html
-${starter_template_html}
-\`\`\``;
-      console.log("[generate] Using starter template as SLIDESHOW reference");
-    } else {
-      templateContext = `## Template Reference (MUST FOLLOW EXACTLY)
-
-Use this HTML template as your EXACT structural and stylistic foundation. You MUST:
-1. Copy the template's CSS variables, color palette, and typography EXACTLY
-2. Keep the same section arrangement, layout patterns, and visual hierarchy
-3. Preserve all CSS classes and their styling
-4. Keep the same spacing, borders, shadows, and visual effects
-5. Only replace placeholder text content with the user's requested content
-6. Do NOT redesign or restyle - the output should look like it was made with this template
-
-The template's visual design is FINAL. Your job is only to replace content, not to redesign.
-
-\`\`\`html
-${starter_template_html}
-\`\`\``;
-      console.log("[generate] Using starter template as reference");
-    }
+    templateContext = buildTemplateContext(starter_template_html);
+    console.log("[generate] Using starter template as reference, isSlideshow:", detectSlideshow(starter_template_html));
   }
 
   // Fetch documents if provided
@@ -300,7 +194,10 @@ ${starter_template_html}
     template: templateContext,
     documents: documentContext,
   });
-  const systemPrompt = buildSystemPrompt(brand, layoutData, icon_style, image_mode);
+  const formatPrompt = page_format
+    ? PAGE_FORMATS.find(f => f.value === page_format)?.prompt ?? null
+    : null;
+  const systemPrompt = buildSystemPrompt(brand, undefined, icon_style, image_mode, formatPrompt);
 
   console.log("[generate] System prompt length:", systemPrompt.length);
   if (brand) {

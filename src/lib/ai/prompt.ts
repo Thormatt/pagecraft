@@ -20,15 +20,13 @@ Rules:
 11. Do NOT wrap your response in markdown code blocks — return raw HTML only
 12. Do NOT include any explanation text — only return the HTML document
 
-## Template Following (CRITICAL)
+## Template Following
 If the user's message includes a "## Template Reference" or "## CRITICAL: Slideshow Template" section with HTML code, you MUST:
-- Use that template as your structural and stylistic foundation
-- Preserve its exact color palette, typography, spacing, and CSS styling
-- Keep the same section arrangement and visual hierarchy
-- Keep the same CSS class naming patterns and structure
+- Use that template as your STRUCTURAL foundation (layout, sections, CSS class patterns)
+- Keep the same section arrangement, visual hierarchy, and spacing
 - Only replace placeholder content (text, headings, descriptions) with the user's requested content
-- Do NOT redesign, reorganize, or change the visual style
-- The output should look like it came from the same designer as the template
+- Do NOT redesign or reorganize the layout structure
+- IMPORTANT: If brand guidelines are also provided, the brand's colors and fonts OVERRIDE the template's colors and fonts. Use the template's structure but the brand's visual identity.
 
 When the user asks you to modify an existing page, incorporate their changes while preserving the overall structure and style unless they ask for a complete redesign.`;
 
@@ -84,7 +82,8 @@ export function buildSystemPrompt(
   brand?: BrandProfile | null,
   layout?: LayoutData | null,
   iconStyle?: IconStyle,
-  imageMode?: ImageMode
+  imageMode?: ImageMode,
+  formatPrompt?: string | null
 ): string {
   let prompt = SYSTEM_PROMPT;
 
@@ -121,44 +120,70 @@ You may use CSS gradients and backgrounds for visual interest, but no <img> tags
     const brandColors = Array.isArray(brand.colors) ? brand.colors : [];
     const brandFonts = Array.isArray(brand.fonts) ? brand.fonts : [];
 
-    let brandGuidelines = `\n\n## CRITICAL: Brand Guidelines (MUST FOLLOW)
-You MUST apply these exact brand aesthetics to the page. Do NOT use generic colors or default palettes.`;
+    let brandGuidelines = `\n\n## HIGHEST PRIORITY: Brand Identity (OVERRIDES ALL OTHER STYLING)
+These brand colors and fonts are the #1 priority. They override template colors, default palettes, and your own design instincts. The page MUST look like it belongs to this brand.`;
 
     if (brandColors.length > 0) {
       const primary = brandColors[0];
       const secondary = brandColors[1] || brandColors[0];
       const accent = brandColors[2] || brandColors[1] || brandColors[0];
+      const bg = brandColors[3] || "#ffffff";
+      const text = brandColors[4] || "#1a1a1a";
 
-      brandGuidelines += `\n\n**REQUIRED Color Palette (use these EXACT hex values):**
-- Primary: ${primary} (use for headers, buttons, key elements)
-- Secondary: ${secondary} (use for backgrounds, cards)
-- Accent: ${accent} (use for highlights, links, CTAs)`;
+      brandGuidelines += `\n\n### Color Palette (use these EXACT hex values everywhere)
+- Primary: ${primary}
+- Secondary: ${secondary}
+- Accent: ${accent}`;
 
       if (brandColors.length > 3) {
-        brandGuidelines += `\n- Additional colors: ${brandColors.slice(3).join(", ")}`;
+        brandGuidelines += `\n- Additional: ${brandColors.slice(3).join(", ")}`;
       }
 
-      brandGuidelines += `\n\nIn your CSS, define these as custom properties:
+      brandGuidelines += `\n
+### How to apply these colors:
+- **Hero/header backgrounds**: Use primary (${primary}) or a dark/light variant
+- **Buttons & CTAs**: Primary (${primary}) background with white text, or accent (${accent})
+- **Links & interactive elements**: Accent (${accent})
+- **Section backgrounds**: Alternate between white/light and secondary (${secondary}) tinted sections
+- **Headings**: Primary (${primary}) or dark text that complements the palette
+- **Borders & dividers**: Light tint of primary or secondary
+- **Cards/containers**: White or very light tint of secondary (${secondary})
+- **Hover states**: Darker shade of the base color
+
+### Required CSS custom properties:
+\`\`\`css
 :root {
   --color-primary: ${primary};
   --color-secondary: ${secondary};
   --color-accent: ${accent};
-}`;
+  --color-bg: ${bg};
+  --color-text: ${text};
+}
+\`\`\`
+Use var(--color-primary) etc. throughout your CSS. Every colored element should reference these variables.`;
     }
 
     if (brandFonts.length > 0) {
-      brandGuidelines += `\n\n**REQUIRED Typography:** ${brandFonts.join(", ")}`;
-      brandGuidelines += `\nLoad these fonts from Google Fonts and use them throughout the page.`;
+      brandGuidelines += `\n\n### Required Typography
+Fonts: ${brandFonts.join(", ")}
+Load from Google Fonts. Use the first font for headings and the second (if available) for body text. Do NOT use system-ui or other fallback fonts as the primary font.`;
     }
 
     if (brand.source_url) {
-      brandGuidelines += `\n\n**Style Reference:** ${brand.source_url}`;
-      brandGuidelines += `\nMatch the visual style, spacing, and overall feel of this website.`;
+      brandGuidelines += `\n\n### Style Reference: ${brand.source_url}
+Match the visual feel, spacing rhythm, and design sensibility of this website.`;
     }
 
-    brandGuidelines += `\n\n**IMPORTANT:** The generated page MUST visually feel like it belongs to this brand. Use the exact hex colors provided above. Do NOT substitute with similar colors or default palettes.`;
+    brandGuidelines += `\n\nReminder: If a template is also provided, use the template's LAYOUT STRUCTURE but apply THIS brand's colors and fonts. The brand identity always wins over template styling.`;
 
     prompt += brandGuidelines;
+  }
+
+  if (formatPrompt) {
+    prompt += `\n\n## Page Format (MUST FOLLOW this structure)
+${formatPrompt}
+
+Use the brand colors and fonts defined above (if any) when building this layout. Every section should use the CSS custom properties (--color-primary, etc.) for consistent branding.`;
   }
 
   if (layout?.layoutMap || layout?.layoutHtml) {

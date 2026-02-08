@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { FileUpload } from "@/components/generate/file-upload";
 import { ThemeSelector, type ThemeSelection } from "@/components/generate/theme-selector";
 import { extractHtml, type IconStyle, type ImageMode } from "@/lib/ai/prompt";
+import { PAGE_FORMATS, type PageFormat } from "@/lib/constants";
 import { useEffect, useRef, useCallback, useState, useMemo } from "react";
 import type { UIMessage } from "ai";
 import type { PromptMessage } from "@/types";
@@ -28,6 +29,7 @@ function getTextContent(message: UIMessage): string {
 interface ChatInterfaceProps {
   onHtmlUpdate: (html: string) => void;
   onMessagesUpdate: (messages: PromptMessage[]) => void;
+  onLoadingChange?: (isLoading: boolean) => void;
   initialMessages?: PromptMessage[];
   initialHtml?: string;
   initialBrandId?: string;
@@ -37,6 +39,7 @@ interface ChatInterfaceProps {
 export function ChatInterface({
   onHtmlUpdate,
   onMessagesUpdate,
+  onLoadingChange,
   initialMessages = [],
   initialHtml,
   initialTemplateHtml,
@@ -45,7 +48,9 @@ export function ChatInterface({
   const [attachedDocuments, setAttachedDocuments] = useState<UploadedDocument[]>([]);
   const [iconStyle, setIconStyle] = useState<IconStyle>("svg");
   const [imageMode, setImageMode] = useState<ImageMode>("stock");
-  const [themeSelection, setThemeSelection] = useState<ThemeSelection>({ theme: null, layout: null });
+  const [pageFormat, setPageFormat] = useState<PageFormat>("auto");
+  const [themeSelection, setThemeSelection] = useState<ThemeSelection>({ theme: null });
+  const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const latestHtmlRef = useRef(initialHtml ?? "");
 
@@ -58,29 +63,19 @@ export function ChatInterface({
       document_ids: attachedDocuments.map((d) => d.id),
       icon_style: iconStyle,
       image_mode: imageMode,
+      page_format: pageFormat,
     };
 
-    // Theme/brand selection
     if (themeSelection.theme) {
       body.brand_id = themeSelection.theme.id;
     }
 
-    // Layout selection
-    if (themeSelection.layout) {
-      if (themeSelection.layout.type === "starter" && themeSelection.layout.html) {
-        body.starter_template_html = themeSelection.layout.html;
-      } else if (themeSelection.layout.type === "saved") {
-        body.template_id = themeSelection.layout.id;
-      }
-    }
-
-    // Template HTML comes from /themes page via sessionStorage (fallback if no layout selected)
-    if (initialTemplateHtml && !themeSelection.layout) {
+    if (initialTemplateHtml) {
       body.starter_template_html = initialTemplateHtml;
     }
 
     requestBodyRef.current = body;
-  }, [initialTemplateHtml, attachedDocuments, iconStyle, imageMode, themeSelection]);
+  }, [initialTemplateHtml, attachedDocuments, iconStyle, imageMode, pageFormat, themeSelection]);
 
   // Custom fetch that merges dynamic body data from the ref
   const customFetch = useCallback(
@@ -110,9 +105,18 @@ export function ChatInterface({
       role: m.role,
       parts: [{ type: "text" as const, text: m.content }],
     })),
+    onError: (err) => {
+      console.error("[chat] Generation error:", err);
+      setError(err.message || "Generation failed. Please try again.");
+    },
   });
 
   const isLoading = status === "submitted" || status === "streaming";
+
+  // Notify parent of loading state changes
+  useEffect(() => {
+    onLoadingChange?.(isLoading);
+  }, [isLoading, onLoadingChange]);
 
   // Stream preview: update on each chunk from the assistant
   useEffect(() => {
@@ -151,6 +155,7 @@ export function ChatInterface({
       const trimmed = inputValue.trim();
       if (!trimmed || isLoading) return;
       setInputValue("");
+      setError(null);
       sendMessage({ text: trimmed });
     },
     [inputValue, isLoading, sendMessage]
@@ -194,6 +199,16 @@ export function ChatInterface({
             <option value="stock">Stock Photos</option>
             <option value="ai">AI Generated</option>
             <option value="none">No Images</option>
+          </select>
+          <select
+            value={pageFormat}
+            onChange={(e) => setPageFormat(e.target.value as PageFormat)}
+            className="h-8 rounded-md border border-border bg-background px-2 text-xs text-foreground"
+            title="Page format/layout"
+          >
+            {PAGE_FORMATS.map((f) => (
+              <option key={f.value} value={f.value}>{f.label}</option>
+            ))}
           </select>
         </div>
         <div className="flex gap-2">
@@ -261,6 +276,11 @@ export function ChatInterface({
             </div>
           );
         })}
+        {error && (
+          <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-2 text-sm text-destructive">
+            {error}
+          </div>
+        )}
         <div ref={messagesEndRef} />
       </div>
     </div>
